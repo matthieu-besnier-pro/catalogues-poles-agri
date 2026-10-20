@@ -13,15 +13,20 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   const timer = useRef(null);
 
   useEffect(() => {
-    const onResize = () => {
-      setDouble(window.innerWidth >= 1024);
-      const element = containerRef?.current;
-      if (element) setArea({ width: element.clientWidth, height: element.clientHeight });
-    };
-    onResize();
+    const onResize = () => setDouble(window.innerWidth >= 1024);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [containerRef, spreadIndex, double]);
+  }, []);
+
+  useEffect(() => {
+    const element = containerRef?.current;
+    if (!element) return undefined;
+    const measure = () => setArea({ width: element.clientWidth, height: element.clientHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [containerRef, pages.length, double]);
 
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
 
@@ -77,6 +82,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
 
   return (
     <div
+      ref={containerRef}
       className={cn('relative flex h-full w-full items-center justify-center', zoom > 1 ? 'overflow-auto' : 'overflow-hidden')}
       onClick={zoom > 1 ? undefined : handleClick}
       onTouchStart={(event) => { touchStart.current = event.touches[0].clientX; }}

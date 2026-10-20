@@ -63,6 +63,20 @@
         }
       }
     },
+    "crop": {
+      "type": "object",
+      "description": "Marge de rognage appliqu\u00e9e aux pages diffus\u00e9es"
+    },
+    "trim_note": {
+      "type": "string"
+    },
+    "pdf_file_uri": {
+      "type": "string",
+      "description": "PDF d'origine conserv\u00e9 hors acc\u00e8s public, servi par lien sign\u00e9 lorsque le t\u00e9l\u00e9chargement est autoris\u00e9"
+    },
+    "pdf_file_name": {
+      "type": "string"
+    },
     "download_enabled": {
       "type": "boolean",
       "default": false
@@ -85,9 +99,6 @@
     "preview_token": {
       "type": "string",
       "description": "Jeton du lien de relecture d'un brouillon"
-    },
-    "trim_note": {
-      "type": "string"
     },
     "published_date": {
       "type": "string"

@@ -20,7 +20,10 @@ export function typeCount(rows, type) {
 }
 
 export function uniqueReaders(rows) {
-  return (rows || []).reduce((total, row) => total + (row.countDistinct_visitor_id || row.count_distinct || 0), 0);
+  return (rows || []).reduce(
+    (total, row) => total + (row.count_distinct_visitor_id || row.countDistinct_visitor_id || 0),
+    0,
+  );
 }
 
 export function trendRows(rows) {

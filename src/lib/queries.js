@@ -1,5 +1,5 @@
 import { base44 } from '@/api/base44Client';
-import { fetchCatalogueViews, periodQuery } from '@/lib/stats';
+import { fetchCatalogueViews, periodQuery, uniqueReaders } from '@/lib/stats';
 
 export async function fetchStudioHome(days = 30) {
   const period = periodQuery(days);
@@ -14,10 +14,7 @@ export async function fetchStudioHome(days = 30) {
     catalogues: list.items || [],
     published,
     byType: byType.rows || [],
-    readers: (readers.rows || []).reduce(
-      (total, row) => total + (row.countDistinct_visitor_id || row.count_distinct || 0),
-      0,
-    ),
+    readers: uniqueReaders(readers.rows),
     views,
   };
 }

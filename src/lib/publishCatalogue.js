@@ -73,7 +73,7 @@ export async function createCatalogueWithPdf({ file, doc, meta, options, crop, o
     title: meta.title,
     description: meta.description || '',
     slug: uniqueSlug(meta.title),
-    status: 'published',
+    status: 'draft',
     language: meta.language || 'fr',
     pole_id: meta.pole?.id || '',
     pole_name: meta.pole?.name || '',
@@ -116,6 +116,10 @@ export async function createCatalogueWithPdf({ file, doc, meta, options, crop, o
       page_count: result.total,
       cover_url: result.cover,
       toc: result.toc,
+      crop: crop || NO_CROP,
+      pdf_file_uri: file_uri,
+      pdf_file_name: file.name,
+      status: 'published',
       published_date: new Date().toISOString(),
     });
     onProgress({ stage: 'Catalogue publié', percent: 100 });
@@ -155,6 +159,10 @@ export async function replaceCataloguePdf({ file, doc, catalogue, crop, label, o
       page_count: result.total,
       cover_url: result.cover,
       toc: result.toc,
+      crop: crop || NO_CROP,
+      pdf_file_uri: file_uri,
+      pdf_file_name: file.name,
+      trim_note: cropLabel(crop),
     });
     onProgress({ stage: 'Nouvelle version en ligne', percent: 100 });
     return { catalogue: updated, version, pageCount: result.total };

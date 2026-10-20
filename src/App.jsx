@@ -9,6 +9,12 @@ import ScrollToTop from './components/ScrollToTop';
 // Add page imports here
 import StudioLayout from '@/components/studio/StudioLayout';
 import StudioHome from '@/pages/StudioHome';
+import ImportWizard from '@/pages/ImportWizard';
+import CatalogueDetail from '@/pages/CatalogueDetail';
+import StatsDashboard from '@/pages/StatsDashboard';
+import PolesManager from '@/pages/PolesManager';
+import PublicViewer from '@/pages/PublicViewer';
+import EmbedViewer from '@/pages/EmbedViewer';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -38,7 +44,13 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route element={<StudioLayout />}>
         <Route path="/" element={<StudioHome />} />
+        <Route path="/nouveau" element={<ImportWizard />} />
+        <Route path="/catalogue/:id" element={<CatalogueDetail />} />
+        <Route path="/statistiques" element={<StatsDashboard />} />
+        <Route path="/poles" element={<PolesManager />} />
       </Route>
+      <Route path="/c/:slug" element={<PublicViewer />} />
+      <Route path="/c/:slug/embed" element={<EmbedViewer />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

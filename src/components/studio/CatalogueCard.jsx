@@ -12,7 +12,7 @@ export default function CatalogueCard({ catalogue, viewCount }) {
           <Image
             src={catalogue.cover_url}
             alt={catalogue.title}
-            className="h-full w-full transition-transform duration-[600ms] ease-out group-hover:scale-[1.035]"
+            className="h-full w-full transition-transform duration-700 ease-out group-hover:scale-[1.035]"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">

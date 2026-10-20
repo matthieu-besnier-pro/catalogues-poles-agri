@@ -29,7 +29,8 @@ export default function PublicViewer({ embedded = false }) {
   const [spreadIndex, setSpreadIndex] = useState(0);
   const [double, setDouble] = useState(() => isDoublePage());
   const [zoomIndex, setZoomIndex] = useState(0);
-  const viewerRef = useRef(null);
+  const shellRef = useRef(null);
+  const stageRef = useRef(null);
   const seen = useRef(new Set());
 
   useEffect(() => {
@@ -188,7 +189,7 @@ export default function PublicViewer({ embedded = false }) {
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen();
-    else viewerRef.current?.requestFullscreen?.();
+    else shellRef.current?.requestFullscreen?.();
   };
 
   if (status === 'loading') {
@@ -225,7 +226,7 @@ export default function PublicViewer({ embedded = false }) {
   }
 
   return (
-    <div ref={viewerRef} className="flex h-screen flex-col overflow-hidden bg-[#e7e4dc]">
+    <div ref={shellRef} className="flex h-screen flex-col overflow-hidden bg-[#e7e4dc]">
       <ViewerToolbar
         catalogue={catalogue}
         compact={embedded}
@@ -248,7 +249,7 @@ export default function PublicViewer({ embedded = false }) {
             onLink={handleLink}
             crop={catalogue.crop}
             zoom={ZOOM_STEPS[zoomIndex]}
-            containerRef={viewerRef}
+            containerRef={stageRef}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3">
