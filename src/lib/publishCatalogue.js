@@ -12,6 +12,7 @@ import { uniqueSlug } from '@/lib/format';
 const SCREEN_WIDTH = 1500;
 const THUMB_WIDTH = 200;
 const PAGE_BATCH = 8;
+const PAGE_CONCURRENCY = 3;
 
 export const NO_CROP = { top: 0, right: 0, bottom: 0, left: 0 };
 
@@ -34,10 +35,20 @@ async function renderAndStore({ doc, file, catalogueId, versionId, crop, onProgr
   const toc = await extractOutline(doc);
   let batch = [];
   let cover = '';
+  let completed = 0;
 
-  for (let number = 1; number <= total; number += 1) {
-    const base = 6 + Math.round(((number - 1) / total) * 84);
-    onProgress({ stage: `Page ${number} sur ${total}`, percent: base, page: number, total });
+  // Flush before awaiting the network call, not after: two workers can both
+  // reach PAGE_BATCH while the previous flush's upload is still in flight,
+  // and clearing `batch` only once that await resolves would drop whichever
+  // pages a faster worker pushed in the meantime.
+  const flushBatch = async () => {
+    if (!batch.length) return;
+    const chunk = batch;
+    batch = [];
+    await base44.entities.CataloguePage.bulkCreate(chunk);
+  };
+
+  const processPage = async (number) => {
     const { canvas, width, height } = await renderPageToCanvas(doc, number, { targetWidth: SCREEN_WIDTH, crop });
     const [screen, thumb] = await Promise.all([
       upload(canvas, `page-${number}.webp`, 'image/webp', 0.82),
@@ -47,6 +58,8 @@ async function renderAndStore({ doc, file, catalogueId, versionId, crop, onProgr
     canvas.height = 0;
     const [text, links] = await Promise.all([extractPageText(doc, number), extractPageLinks(doc, number)]);
     if (number === 1) cover = screen.file_url;
+    completed += 1;
+    onProgress({ stage: `Page ${completed} sur ${total}`, percent: 6 + Math.round((completed / total) * 84), page: number, total });
     batch.push({
       catalogue_id: catalogueId,
       version_id: versionId,
@@ -58,12 +71,23 @@ async function renderAndStore({ doc, file, catalogueId, versionId, crop, onProgr
       text,
       links,
     });
-    if (batch.length >= PAGE_BATCH) {
-      await base44.entities.CataloguePage.bulkCreate(batch);
-      batch = [];
+    if (batch.length >= PAGE_BATCH) await flushBatch();
+  };
+
+  // Pages render and upload PAGE_CONCURRENCY at a time instead of one at a
+  // time — the original loop let the network sit idle while the next page
+  // rendered, and vice versa, so throughput was gated by the slower of the
+  // two instead of overlapping them.
+  const queue = Array.from({ length: total }, (_, index) => index + 1);
+  const worker = async () => {
+    while (queue.length) {
+      const number = queue.shift();
+      await processPage(number);
     }
-  }
-  if (batch.length) await base44.entities.CataloguePage.bulkCreate(batch);
+  };
+  await Promise.all(Array.from({ length: Math.min(PAGE_CONCURRENCY, total) }, worker));
+
+  await flushBatch();
   return { total, toc, cover };
 }
 
