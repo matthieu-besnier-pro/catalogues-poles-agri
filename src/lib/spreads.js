@@ -5,11 +5,22 @@ export function isDoublePage(width) {
 
 export function buildSpreads(pages, double) {
   if (!pages || !pages.length) return [];
-  if (!double) return pages.map((page) => ({ left: null, right: page }));
-  const spreads = [{ left: null, right: pages[0] }];
-  for (let index = 1; index < pages.length; index += 2) {
-    spreads.push({ left: pages[index], right: pages[index + 1] || null });
+  if (!double) {
+    const last = pages.length - 1;
+    return pages.map((page, index) => ({ left: null, right: page, cover: index === 0 || index === last }));
   }
+
+  const last = pages.length - 1;
+  if (last === 0) return [{ left: null, right: pages[0], cover: true }];
+
+  // Front and back cover always stand alone and centered, like a real book —
+  // only the interior pages pair up into two-page spreads.
+  const spreads = [{ left: null, right: pages[0], cover: true }];
+  const interior = pages.slice(1, last);
+  for (let index = 0; index < interior.length; index += 2) {
+    spreads.push({ left: interior[index], right: interior[index + 1] || null, cover: false });
+  }
+  spreads.push({ left: null, right: pages[last], cover: true });
   return spreads;
 }
 

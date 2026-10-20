@@ -3,21 +3,26 @@ import LinkZones from '@/components/viewer/LinkZones';
 import { cn } from '@/lib/utils';
 import { mapLinkToCrop } from '@/lib/format';
 
-export default function PageFace({ page, face = 'static', crop, width, height, linksEnabled = true, onLink }) {
+export default function PageFace({ page, face = 'static', crop, width, height, linksEnabled = true, onLink, standalone = false }) {
   const isOverlay = face !== 'static';
+
   const links = linksEnabled && page?.links?.length
     ? page.links.map((link) => ({ ...mapLinkToCrop(link, crop), url: link.url, page: link.page, label: link.label }))
     : [];
 
   return (
     <div
-      className={cn('relative overflow-hidden bg-white', isOverlay && 'absolute inset-0')}
+      className={cn('relative overflow-hidden bg-white', isOverlay && 'absolute inset-0', standalone && 'rounded-md')}
       style={{
         width: isOverlay ? undefined : width,
         height: isOverlay ? undefined : height,
         transform: face === 'back' ? 'rotateY(180deg)' : undefined,
         backfaceVisibility: isOverlay ? 'hidden' : undefined,
-        boxShadow: isOverlay ? undefined : 'inset -1px 0 0 rgba(14,32,26,0.06)',
+        boxShadow: isOverlay
+          ? undefined
+          : standalone
+            ? '0 1px 2px rgba(6,22,42,0.08), 0 28px 48px -26px rgba(6,22,42,0.38)'
+            : 'inset -1px 0 0 rgba(6,22,42,0.06)',
       }}
     >
       {page ? (

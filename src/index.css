@@ -111,13 +111,3 @@
     background-size: 14px 14px;
   }
 }
-
-@keyframes leaf-forward {
-  from { transform: rotateY(0deg); }
-  to { transform: rotateY(-179.5deg); }
-}
-
-@keyframes leaf-backward {
-  from { transform: rotateY(-179.5deg); }
-  to { transform: rotateY(0deg); }
-}
