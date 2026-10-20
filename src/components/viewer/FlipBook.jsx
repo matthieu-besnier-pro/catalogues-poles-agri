@@ -1,8 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import PageFace from '@/components/viewer/PageFace';
+import { buildTransformUrl, parseWixMediaUrl } from '@/components/ui/image-helpers';
 import { buildSpreads } from '@/lib/spreads';
 import { cn } from '@/lib/utils';
+
+// Mirrors exactly what PageFace/ResponsiveImage requests for a page of this
+// size (fittingType="fit" => uncropped, default quality 90) — preloading the
+// raw page.image_url warms the wrong cache entry, since the real <img> asks
+// for this resized/optimized variant instead.
+function preloadPage(url, width, height) {
+  if (!url || width <= 0 || height <= 0) return;
+  const parsed = parseWixMediaUrl(url);
+  const target = parsed
+    ? buildTransformUrl(parsed, { width: Math.round(width), height: Math.round(height), crop: false, quality: 90 })
+    : url;
+  const image = new window.Image();
+  image.src = target;
+  image.decode?.().catch(() => {});
+}
 
 const SETTLE_MS = 380;
 const TAP_TURN_MS = 520;
@@ -49,6 +65,14 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   const perPage = double ? Math.max(120, area.width / 2) : Math.max(180, area.width);
   const pageHeight = Math.max(160, Math.min(area.height || 600, perPage / safeRatio));
   const pageWidth = pageHeight * safeRatio;
+
+  useEffect(() => {
+    if (!pageWidth || !pageHeight) return;
+    [spreads[spreadIndex - 1], spreads[spreadIndex + 1]].forEach((spread) => {
+      preloadPage(spread?.left?.image_url, pageWidth, pageHeight);
+      preloadPage(spread?.right?.image_url, pageWidth, pageHeight);
+    });
+  }, [spreads, spreadIndex, pageWidth, pageHeight]);
 
   // Builds the overlay that will animate over the spine: which page images ride it,
   // and where its hinge sits (the spine between two slots, or a lone page's own edge).
@@ -171,16 +195,6 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   const canNext = spreadIndex < spreads.length - 1;
   const single = isSingleSlot(current);
 
-  // Mount the neighbouring pages off-screen with the exact same props the real
-  // spread will use, so the browser fetches and decodes their optimized image
-  // ahead of time — a page that was never rendered before can't flip in
-  // instantly, it has to be requested first, and a plain `new Image()` prefetch
-  // targets the raw file instead of the resized/optimized URL this component
-  // actually requests, so it never warmed the cache that matters.
-  const preloadPages = [spreads[spreadIndex - 1], spreads[spreadIndex + 1]]
-    .flatMap((spread) => [spread?.left, spread?.right])
-    .filter(Boolean);
-
   return (
     <div
       ref={containerRef}
@@ -194,13 +208,6 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       onPointerUp={zoom > 1 ? undefined : endPointer}
       onPointerCancel={zoom > 1 ? undefined : endPointer}
     >
-      {preloadPages.length ? (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-0" aria-hidden="true">
-          {preloadPages.map((page) => (
-            <PageFace key={page.page_number} page={page} crop={crop} width={pageWidth} height={pageHeight} linksEnabled={false} />
-          ))}
-        </div>
-      ) : null}
       <div
         className={cn('relative flex items-stretch transition-transform duration-300 ease-out', !single && 'paper')}
         style={{ transform: `scale(${zoom})`, transformStyle: 'preserve-3d', perspective: '2600px' }}
