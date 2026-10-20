@@ -1,0 +1,38 @@
+{
+  "name": "Pole",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nom du p\u00f4le ou de la marque (ex. P\u00f4le V\u00e9g\u00e9tal)"
+    },
+    "slug": {
+      "type": "string",
+      "description": "Identifiant court utilis\u00e9 dans les adresses"
+    },
+    "tagline": {
+      "type": "string",
+      "description": "Accroche affich\u00e9e sous le nom dans la visionneuse"
+    },
+    "description": {
+      "type": "string",
+      "description": "Pr\u00e9sentation interne du p\u00f4le"
+    },
+    "color": {
+      "type": "string",
+      "description": "Couleur d'accent du p\u00f4le (hexad\u00e9cimal)"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "Logo du p\u00f4le affich\u00e9 sur les catalogues publi\u00e9s"
+    },
+    "display_order": {
+      "type": "number",
+      "description": "Ordre d'affichage dans l'espace de publication",
+      "default": 0
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

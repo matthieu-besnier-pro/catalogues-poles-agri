@@ -1,0 +1,100 @@
+{
+  "name": "Catalogue",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "slug": {
+      "type": "string",
+      "description": "Fin de l'adresse publique, stable lors des remplacements de PDF"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published",
+        "archived"
+      ],
+      "default": "draft"
+    },
+    "language": {
+      "type": "string",
+      "default": "fr"
+    },
+    "pole_id": {
+      "type": "string"
+    },
+    "pole_name": {
+      "type": "string"
+    },
+    "pole_slug": {
+      "type": "string"
+    },
+    "active_version_id": {
+      "type": "string",
+      "description": "Version dont les pages sont diffus\u00e9es"
+    },
+    "page_count": {
+      "type": "number",
+      "default": 0
+    },
+    "cover_url": {
+      "type": "string"
+    },
+    "toc": {
+      "type": "array",
+      "description": "Sommaire repris des signets du PDF",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "page": {
+            "type": "number"
+          },
+          "level": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "download_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "search_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "no_index": {
+      "type": "boolean",
+      "default": false
+    },
+    "password_hash": {
+      "type": "string",
+      "description": "Empreinte du mot de passe de consultation (jamais le mot de passe)"
+    },
+    "theme_color": {
+      "type": "string"
+    },
+    "preview_token": {
+      "type": "string",
+      "description": "Jeton du lien de relecture d'un brouillon"
+    },
+    "trim_note": {
+      "type": "string"
+    },
+    "published_date": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "slug"
+  ]
+}

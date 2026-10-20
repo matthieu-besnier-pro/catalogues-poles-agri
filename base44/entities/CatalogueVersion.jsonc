@@ -1,0 +1,65 @@
+{
+  "name": "CatalogueVersion",
+  "type": "object",
+  "properties": {
+    "catalogue_id": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    },
+    "file_name": {
+      "type": "string"
+    },
+    "file_size": {
+      "type": "number"
+    },
+    "file_uri": {
+      "type": "string",
+      "description": "Emplacement du PDF d'origine, conserv\u00e9 hors acc\u00e8s public"
+    },
+    "page_count": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "processing",
+        "ready",
+        "failed"
+      ],
+      "default": "processing"
+    },
+    "error": {
+      "type": "string"
+    },
+    "crop": {
+      "type": "object",
+      "description": "Marge de rognage appliqu\u00e9e \u00e0 la conversion (fractions)"
+    },
+    "trim_note": {
+      "type": "string"
+    },
+    "toc": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "page": {
+            "type": "number"
+          },
+          "level": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "catalogue_id"
+  ]
+}

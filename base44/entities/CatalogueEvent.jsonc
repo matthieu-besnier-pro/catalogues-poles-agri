@@ -1,0 +1,48 @@
+{
+  "name": "CatalogueEvent",
+  "type": "object",
+  "properties": {
+    "catalogue_id": {
+      "type": "string"
+    },
+    "pole_id": {
+      "type": "string"
+    },
+    "version_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "view",
+        "page",
+        "full_read",
+        "download",
+        "share"
+      ]
+    },
+    "page_number": {
+      "type": "number",
+      "default": 0
+    },
+    "visitor_id": {
+      "type": "string",
+      "description": "Identifiant anonyme conserv\u00e9 par le lecteur, sans cookie nominatif"
+    },
+    "source": {
+      "type": "string",
+      "description": "Canal d'arriv\u00e9e : direct, email, reseaux, recherche, qr, autre"
+    },
+    "device": {
+      "type": "string",
+      "description": "mobile, tablette ou ordinateur"
+    },
+    "referrer": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "catalogue_id",
+    "type"
+  ]
+}

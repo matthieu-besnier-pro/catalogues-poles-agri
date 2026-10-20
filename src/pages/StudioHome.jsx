@@ -1,43 +1,52 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, Eye, Plus, Sparkles, Users } from 'lucide-react';
+import { Download, Eye, Plus, Search, Sparkles, Users } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import CatalogueCard from '@/components/studio/CatalogueCard';
 import StatCard from '@/components/studio/StatCard';
+import { escapeRegex, formatNumber } from '@/lib/format';
+import { fetchStudioHome } from '@/lib/queries';
+import { typeCount } from '@/lib/stats';
+import { cn } from '@/lib/utils';
 
-// Aperçu local : données d'exemple, remplacées par la base dès le premier import.
-const SAMPLE_CATALOGUES = [
-  {
-    id: 'sample-1',
-    title: 'Semences & fourrages',
-    pole_name: 'Pôle Végétal',
-    status: 'published',
-    page_count: 184,
-    cover_url: '',
-    created_date: '2026-10-20T09:00:00.000Z',
-    published_date: '2026-10-20T09:00:00.000Z',
-  },
-  {
-    id: 'sample-2',
-    title: 'Nutrition animale 2026',
-    pole_name: 'Pôle Animal',
-    status: 'draft',
-    page_count: 96,
-    cover_url: '',
-    created_date: '2026-10-20T09:00:00.000Z',
-  },
-  {
-    id: 'sample-3',
-    title: 'Matériel de récolte',
-    pole_name: 'Pôle Agroéquipement',
-    status: 'published',
-    page_count: 252,
-    cover_url: '',
-    created_date: '2026-10-20T09:00:00.000Z',
-    published_date: '2026-10-20T09:00:00.000Z',
-  },
+const TABS = [
+  { key: 'all', label: 'Tous' },
+  { key: 'published', label: 'Publiés' },
+  { key: 'draft', label: 'Brouillons' },
 ];
 
 export default function StudioHome() {
+  const [status, setStatus] = useState('all');
+  const [term, setTerm] = useState('');
+  const [catalogues, setCatalogues] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [kpi, setKpi] = useState(null);
+
+  useEffect(() => {
+    fetchStudioHome(30).then(setKpi);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const handle = window.setTimeout(async () => {
+      setLoading(true);
+      const query = {};
+      if (status === 'published' || status === 'draft') query.status = status;
+      else query.status = { $ne: 'archived' };
+      const cleaned = term.trim();
+      if (cleaned) query.title = { $regex: escapeRegex(cleaned), $options: 'i' };
+      const result = await base44.entities.Catalogue.filter(query, { sort: '-created_date', limit: 60 });
+      if (!active) return;
+      setCatalogues(result.items || []);
+      setLoading(false);
+    }, term ? 320 : 0);
+    return () => {
+      active = false;
+      window.clearTimeout(handle);
+    };
+  }, [status, term]);
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 lg:px-12 lg:py-16">
       <header className="flex flex-wrap items-end justify-between gap-6">
@@ -57,24 +66,74 @@ export default function StudioHome() {
       </header>
 
       <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Catalogues publiés" value="2" hint="sur 3 catalogues" icon={Sparkles} />
-        <StatCard label="Vues" value="1 284" hint="30 derniers jours" icon={Eye} />
-        <StatCard label="Lecteurs uniques" value="912" hint="Sans cookie nominatif" icon={Users} />
-        <StatCard label="Téléchargements PDF" value="168" hint="13 % des vues" icon={Download} />
+        <StatCard label="Catalogues publiés" value={kpi ? formatNumber(kpi.published) : '—'} hint="en ligne actuellement" icon={Sparkles} />
+        <StatCard label="Vues" value={kpi ? formatNumber(typeCount(kpi.byType, 'view')) : '—'} hint="30 derniers jours" icon={Eye} />
+        <StatCard label="Lecteurs uniques" value={kpi ? formatNumber(kpi.readers) : '—'} hint="sans cookie nominatif" icon={Users} />
+        <StatCard label="Téléchargements PDF" value={kpi ? formatNumber(typeCount(kpi.byType, 'download')) : '—'} hint="30 derniers jours" icon={Download} />
       </div>
 
       <section className="mt-16">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h2 className="font-display text-2xl">Tous les catalogues</h2>
-          <span className="rounded-full bg-secondary px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            Aperçu · données d'exemple
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={term}
+                onChange={(event) => setTerm(event.target.value)}
+                placeholder="Rechercher un titre"
+                className="h-9 w-56 rounded-full border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <div className="flex gap-1 rounded-full bg-secondary p-1">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setStatus(tab.key)}
+                  className={cn(
+                    'rounded-full px-3.5 py-1.5 text-xs transition-colors',
+                    status === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-          {SAMPLE_CATALOGUES.map((catalogue) => (
-            <CatalogueCard key={catalogue.id} catalogue={catalogue} viewCount={0} />
-          ))}
-        </div>
+
+        {loading ? (
+          <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((key) => (
+              <div key={key} className="animate-pulse">
+                <div className="aspect-[3/4] rounded-lg bg-secondary" />
+                <div className="mt-4 h-4 w-3/4 rounded bg-secondary" />
+                <div className="mt-2 h-3 w-1/2 rounded bg-secondary" />
+              </div>
+            ))}
+          </div>
+        ) : catalogues.length ? (
+          <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+            {catalogues.map((catalogue) => (
+              <CatalogueCard key={catalogue.id} catalogue={catalogue} viewCount={kpi?.views?.[catalogue.id] || 0} />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-8 rounded-2xl border border-dashed border-border bg-card/60 px-8 py-16 text-center">
+            <h3 className="font-display text-2xl">Aucun catalogue pour l’instant</h3>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+              Déposez le PDF d’un de vos pôles : les pages sont converties en images, le sommaire et le texte sont extraits, et un
+              lien public est généré en une seule opération.
+            </p>
+            <Button asChild size="lg" className="mt-7 rounded-full px-6">
+              <Link to="/nouveau">
+                <Plus className="mr-2 h-4 w-4" />
+                Importer un PDF
+              </Link>
+            </Button>
+          </div>
+        )}
       </section>
     </div>
   );

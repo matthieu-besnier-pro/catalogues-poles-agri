@@ -1,0 +1,67 @@
+{
+  "name": "CataloguePage",
+  "type": "object",
+  "properties": {
+    "catalogue_id": {
+      "type": "string"
+    },
+    "version_id": {
+      "type": "string"
+    },
+    "page_number": {
+      "type": "number"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Page convertie en image pour l'affichage \u00e9cran et le zoom"
+    },
+    "thumb_url": {
+      "type": "string",
+      "description": "Miniature pour le bandeau et le sommaire visuel"
+    },
+    "width": {
+      "type": "number"
+    },
+    "height": {
+      "type": "number"
+    },
+    "text": {
+      "type": "string",
+      "description": "Texte extrait du PDF pour la recherche plein texte"
+    },
+    "links": {
+      "type": "array",
+      "description": "Zones cliquables reprises du PDF",
+      "items": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "w": {
+            "type": "number"
+          },
+          "h": {
+            "type": "number"
+          },
+          "url": {
+            "type": "string"
+          },
+          "page": {
+            "type": "number"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "version_id",
+    "page_number"
+  ]
+}
