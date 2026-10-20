@@ -44,16 +44,6 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   const spreads = useMemo(() => buildSpreads(pages, double), [pages, double]);
   const current = spreads[Math.min(spreadIndex, Math.max(0, spreads.length - 1))];
 
-  useEffect(() => {
-    const next = spreads[spreadIndex + 1];
-    [next?.left?.image_url, next?.right?.image_url].forEach((url) => {
-      if (url) {
-        const image = new Image();
-        image.src = url;
-      }
-    });
-  }, [spreads, spreadIndex]);
-
   const ratio = pages[0]?.width && pages[0]?.height ? pages[0].width / pages[0].height : 0.707;
   const safeRatio = ratio > 0.35 && ratio < 1.4 ? ratio : 0.707;
   const perPage = double ? Math.max(120, area.width / 2) : Math.max(180, area.width);
@@ -181,6 +171,16 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   const canNext = spreadIndex < spreads.length - 1;
   const single = isSingleSlot(current);
 
+  // Mount the neighbouring pages off-screen with the exact same props the real
+  // spread will use, so the browser fetches and decodes their optimized image
+  // ahead of time — a page that was never rendered before can't flip in
+  // instantly, it has to be requested first, and a plain `new Image()` prefetch
+  // targets the raw file instead of the resized/optimized URL this component
+  // actually requests, so it never warmed the cache that matters.
+  const preloadPages = [spreads[spreadIndex - 1], spreads[spreadIndex + 1]]
+    .flatMap((spread) => [spread?.left, spread?.right])
+    .filter(Boolean);
+
   return (
     <div
       ref={containerRef}
@@ -194,6 +194,13 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       onPointerUp={zoom > 1 ? undefined : endPointer}
       onPointerCancel={zoom > 1 ? undefined : endPointer}
     >
+      {preloadPages.length ? (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-0" aria-hidden="true">
+          {preloadPages.map((page) => (
+            <PageFace key={page.page_number} page={page} crop={crop} width={pageWidth} height={pageHeight} linksEnabled={false} />
+          ))}
+        </div>
+      ) : null}
       <div
         className={cn('relative flex items-stretch transition-transform duration-300 ease-out', !single && 'paper')}
         style={{ transform: `scale(${zoom})`, transformStyle: 'preserve-3d', perspective: '2600px' }}
