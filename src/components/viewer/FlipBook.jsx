@@ -18,6 +18,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   const overlayRef = useRef(null);
   const drag = useRef(null);
   const settleTimer = useRef(null);
+  const rafId = useRef(null);
 
   useEffect(() => {
     const onResize = () => setDouble(window.innerWidth >= 1024);
@@ -35,7 +36,10 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
     return () => observer.disconnect();
   }, [containerRef, pages.length, double]);
 
-  useEffect(() => () => { if (settleTimer.current) window.clearTimeout(settleTimer.current); }, []);
+  useEffect(() => () => {
+    if (settleTimer.current) window.clearTimeout(settleTimer.current);
+    if (rafId.current) cancelAnimationFrame(rafId.current);
+  }, []);
 
   const spreads = useMemo(() => buildSpreads(pages, double), [pages, double]);
   const current = spreads[Math.min(spreadIndex, Math.max(0, spreads.length - 1))];
@@ -142,12 +146,20 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       event.currentTarget.setPointerCapture(event.pointerId);
       setTurning(turn);
     }
-    if (!state.engaged || !overlayRef.current) return;
-    const progress = Math.min(1, Math.abs(delta) / pageWidth);
-    const rotation = state.direction > 0 ? -180 * progress : -180 * (1 - progress);
-    overlayRef.current.style.transition = 'none';
-    overlayRef.current.style.transform = `rotateY(${rotation}deg)`;
-    state.progress = progress;
+    if (!state.engaged) return;
+    state.pendingDelta = delta;
+    // One DOM write per screen frame, not per pointermove — pointermove can fire
+    // faster than the display refreshes, and writing on every one of them is
+    // what makes a 3D rotateY drag feel stuttery instead of silky.
+    if (rafId.current) return;
+    rafId.current = requestAnimationFrame(() => {
+      rafId.current = null;
+      if (!overlayRef.current || !drag.current) return;
+      const progress = Math.min(1, Math.abs(drag.current.pendingDelta) / pageWidth);
+      const rotation = state.direction > 0 ? -180 * progress : -180 * (1 - progress);
+      overlayRef.current.style.transform = `rotateY(${rotation}deg)`;
+      state.progress = progress;
+    });
   };
 
   const endPointer = () => {
@@ -206,6 +218,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
               width: pageWidth,
               transformOrigin: 'left center',
               transformStyle: 'preserve-3d',
+              willChange: 'transform',
               transform: `rotateY(${turning.direction > 0 ? 0 : -180}deg)`,
             }}
           >
