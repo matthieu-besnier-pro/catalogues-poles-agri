@@ -33,7 +33,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   const [area, setArea] = useState({ width: 0, height: 0 });
   const overlayRef = useRef(null);
   const drag = useRef(null);
-  const settleTimer = useRef(null);
+  const activeTurn = useRef(null);
   const rafId = useRef(null);
 
   useEffect(() => {
@@ -53,7 +53,10 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   }, [containerRef, pages.length, double]);
 
   useEffect(() => () => {
-    if (settleTimer.current) window.clearTimeout(settleTimer.current);
+    if (activeTurn.current) {
+      activeTurn.current.el.removeEventListener('transitionend', activeTurn.current.onEnd);
+      window.clearTimeout(activeTurn.current.timer);
+    }
     if (rafId.current) cancelAnimationFrame(rafId.current);
   }, []);
 
@@ -94,21 +97,52 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
     [double, pageWidth, spreadIndex, spreads],
   );
 
-  const settle = useCallback(
+  // Swaps the static spread over to the new page only once the overlay's own
+  // transform transition has actually finished painting — a parallel
+  // setTimeout can fire a frame or two before the CSS transition it's meant
+  // to track (it starts counting before the rAF-delayed transition even
+  // begins), which swaps the content early and leaves the old page visible
+  // for a beat after the flip looks done. transitionend can't drift like that;
+  // the timeout stays only as a safety net in case it never fires.
+  const finishTurn = useCallback(
     (state, commit) => {
-      if (settleTimer.current) window.clearTimeout(settleTimer.current);
-      if (overlayRef.current) {
-        const forward = state.direction > 0;
-        const finalRotation = commit ? (forward ? -180 : 0) : (forward ? 0 : -180);
-        overlayRef.current.style.transition = `transform ${SETTLE_MS}ms cubic-bezier(0.33,0.08,0.2,1)`;
-        overlayRef.current.style.transform = `rotateY(${finalRotation}deg)`;
+      if (activeTurn.current) {
+        activeTurn.current.el.removeEventListener('transitionend', activeTurn.current.onEnd);
+        window.clearTimeout(activeTurn.current.timer);
+        activeTurn.current = null;
       }
-      settleTimer.current = window.setTimeout(() => {
-        setTurning(null);
-        if (commit) onSpreadChange(state.target);
-      }, SETTLE_MS);
+      setTurning(null);
+      if (commit) onSpreadChange(state.target);
     },
     [onSpreadChange],
+  );
+
+  const animateOverlayTo = useCallback(
+    (state, finalRotation, duration, easing, commit) => {
+      const el = overlayRef.current;
+      if (!el) {
+        finishTurn(state, commit);
+        return;
+      }
+      const onEnd = (event) => {
+        if (event.target === el && event.propertyName === 'transform') finishTurn(state, commit);
+      };
+      el.addEventListener('transitionend', onEnd);
+      const timer = window.setTimeout(() => finishTurn(state, commit), duration + 150);
+      activeTurn.current = { el, onEnd, timer };
+      el.style.transition = `transform ${duration}ms ${easing}`;
+      el.style.transform = `rotateY(${finalRotation}deg)`;
+    },
+    [finishTurn],
+  );
+
+  const settle = useCallback(
+    (state, commit) => {
+      const forward = state.direction > 0;
+      const finalRotation = commit ? (forward ? -180 : 0) : (forward ? 0 : -180);
+      animateOverlayTo(state, finalRotation, SETTLE_MS, 'cubic-bezier(0.33,0.08,0.2,1)', commit);
+    },
+    [animateOverlayTo],
   );
 
   const go = useCallback(
@@ -118,17 +152,10 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       if (!state) return;
       setTurning(state);
       requestAnimationFrame(() => {
-        if (!overlayRef.current) return;
-        overlayRef.current.style.transition = `transform ${TAP_TURN_MS}ms cubic-bezier(0.44,0.05,0.24,1)`;
-        overlayRef.current.style.transform = `rotateY(${direction > 0 ? -180 : 0}deg)`;
+        animateOverlayTo(state, direction > 0 ? -180 : 0, TAP_TURN_MS, 'cubic-bezier(0.44,0.05,0.24,1)', true);
       });
-      if (settleTimer.current) window.clearTimeout(settleTimer.current);
-      settleTimer.current = window.setTimeout(() => {
-        setTurning(null);
-        onSpreadChange(state.target);
-      }, TAP_TURN_MS);
     },
-    [beginTurn, onSpreadChange, turning],
+    [animateOverlayTo, beginTurn, turning],
   );
 
   const onPointerDown = (event) => {
