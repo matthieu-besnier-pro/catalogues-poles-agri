@@ -85,7 +85,7 @@ export default function PolesManager() {
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Organisation</p>
-          <h1 className="mt-3 font-display text-4xl leading-tight">Pôles et marques</h1>
+          <h1 className="mt-3 font-display text-4xl leading-tight">FILIALES</h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
             Chaque catalogue appartient à un pôle : le nom, le logo et la couleur accompagnent la diffusion publique et les statistiques.
           </p>
