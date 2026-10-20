@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, Eye, Plus, Search, Sparkles, Users } from 'lucide-react';
+import { Download, Eye, Layers, Plus, Search, Sparkles, Users } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import CatalogueCard from '@/components/studio/CatalogueCard';
@@ -57,12 +57,20 @@ export default function StudioHome() {
             Importez un PDF : il devient un catalogue feuilletable, diffusé par un lien public stable, avec ses statistiques de lecture.
           </p>
         </div>
-        <Button asChild size="lg" className="rounded-full px-6">
-          <Link to="/nouveau">
-            <Plus className="mr-2 h-4 w-4" />
-            Nouveau catalogue
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button asChild variant="outline" size="lg" className="rounded-full px-6">
+            <Link to="/nouveau/masse">
+              <Layers className="mr-2 h-4 w-4" />
+              Import en masse
+            </Link>
+          </Button>
+          <Button asChild size="lg" className="rounded-full px-6">
+            <Link to="/nouveau">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouveau catalogue
+            </Link>
+          </Button>
+        </div>
       </header>
 
       <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

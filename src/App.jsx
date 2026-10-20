@@ -10,6 +10,7 @@ import ScrollToTop from './components/ScrollToTop';
 import StudioLayout from '@/components/studio/StudioLayout';
 import StudioHome from '@/pages/StudioHome';
 import ImportWizard from '@/pages/ImportWizard';
+import BulkImportWizard from '@/pages/BulkImportWizard';
 import CatalogueDetail from '@/pages/CatalogueDetail';
 import StatsDashboard from '@/pages/StatsDashboard';
 import PolesManager from '@/pages/PolesManager';
@@ -45,6 +46,7 @@ const AuthenticatedApp = () => {
       <Route element={<StudioLayout />}>
         <Route path="/" element={<StudioHome />} />
         <Route path="/nouveau" element={<ImportWizard />} />
+        <Route path="/nouveau/masse" element={<BulkImportWizard />} />
         <Route path="/catalogue/:id" element={<CatalogueDetail />} />
         <Route path="/statistiques" element={<StatsDashboard />} />
         <Route path="/poles" element={<PolesManager />} />
