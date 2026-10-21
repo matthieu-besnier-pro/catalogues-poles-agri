@@ -83,6 +83,25 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
     });
   }, [spreads, spreadIndex, pageWidth, pageHeight]);
 
+  const renderSpread = (spread) => {
+    const isSingle = isSingleSlot(spread);
+    return (
+      <div className={cn('relative flex items-stretch', !isSingle && 'paper')}>
+        {double && !isSingle ? (
+          <>
+            <PageFace page={spread.left} crop={crop} width={pageWidth} height={pageHeight} onLink={onLink} />
+            <PageFace page={spread.right} crop={crop} width={pageWidth} height={pageHeight} onLink={onLink} />
+          </>
+        ) : (
+          <PageFace page={spread.right} crop={crop} width={pageWidth} height={pageHeight} onLink={onLink} standalone />
+        )}
+        {double && !isSingle ? (
+          <div className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-[26px] -translate-x-1/2 bg-gradient-to-r from-black/0 via-black/12 to-black/0 lg:block" />
+        ) : null}
+      </div>
+    );
+  };
+
   // Builds the overlay that will animate over the spine: which page images ride it,
   // and where its hinge sits (the spine between two slots, or a lone page's own edge).
   const beginTurn = useCallback(
@@ -92,24 +111,31 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       const from = spreads[spreadIndex];
       const to = spreads[target];
       if (!from || !to) return null;
+      if (isSingleSlot(from) !== isSingleSlot(to)) {
+        // Crossing the front/back cover boundary: the stage itself changes
+        // shape mid-flip (a lone centered page vs. a two-slot spread), so a
+        // single fixed hinge can't land the rotating page in the right spot
+        // at both ends of the animation. Cross-fade instead of 3D-flipping.
+        return { direction, target, simple: true, from, to };
+      }
       const front = direction > 0 ? from.right : to.right;
       const back = double
         ? direction > 0 ? to.left : from.left
         : direction > 0 ? to.right : from.right;
       const hingeSpread = direction > 0 ? from : to;
       const hingeLeft = double && !isSingleSlot(hingeSpread) ? pageWidth : 0;
-      return { direction, front, back, hingeLeft, target };
+      return { direction, front, back, hingeLeft, target, simple: false };
     },
     [double, pageWidth, spreadIndex, spreads],
   );
 
   // Swaps the static spread over to the new page only once the overlay's own
-  // transform transition has actually finished painting — a parallel
-  // setTimeout can fire a frame or two before the CSS transition it's meant
-  // to track (it starts counting before the rAF-delayed transition even
-  // begins), which swaps the content early and leaves the old page visible
-  // for a beat after the flip looks done. transitionend can't drift like that;
-  // the timeout stays only as a safety net in case it never fires.
+  // transition has actually finished painting — a parallel setTimeout can
+  // fire a frame or two before the CSS transition it's meant to track (it
+  // starts counting before the rAF-delayed transition even begins), which
+  // swaps the content early and leaves the old page visible for a beat
+  // after the flip looks done. transitionend can't drift like that; the
+  // timeout stays only as a safety net in case it never fires.
   const finishTurn = useCallback(
     (state, commit) => {
       if (activeTurn.current) {
@@ -123,32 +149,47 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
     [onSpreadChange],
   );
 
-  const animateOverlayTo = useCallback(
-    (state, finalRotation, duration, easing, commit) => {
+  const animateTo = useCallback(
+    (state, property, value, duration, easing, commit) => {
       const el = overlayRef.current;
       if (!el) {
         finishTurn(state, commit);
         return;
       }
       const onEnd = (event) => {
-        if (event.target === el && event.propertyName === 'transform') finishTurn(state, commit);
+        if (event.target === el && event.propertyName === property) finishTurn(state, commit);
       };
       el.addEventListener('transitionend', onEnd);
       const timer = window.setTimeout(() => finishTurn(state, commit), duration + 150);
       activeTurn.current = { el, onEnd, timer };
-      el.style.transition = `transform ${duration}ms ${easing}`;
-      el.style.transform = `rotateY(${finalRotation}deg)`;
+      el.style.transition = `${property} ${duration}ms ${easing}`;
+      el.style[property] = value;
     },
     [finishTurn],
   );
 
+  const animateOverlayTo = useCallback(
+    (state, finalRotation, duration, easing, commit) =>
+      animateTo(state, 'transform', `rotateY(${finalRotation}deg)`, duration, easing, commit),
+    [animateTo],
+  );
+
+  const animateFadeTo = useCallback(
+    (state, finalOpacity, duration, easing, commit) => animateTo(state, 'opacity', String(finalOpacity), duration, easing, commit),
+    [animateTo],
+  );
+
   const settle = useCallback(
     (state, commit) => {
+      if (state.simple) {
+        animateFadeTo(state, commit ? 1 : 0, SETTLE_MS, 'ease-out', commit);
+        return;
+      }
       const forward = state.direction > 0;
       const finalRotation = commit ? (forward ? FLIPPED : FLAT) : (forward ? FLAT : FLIPPED);
       animateOverlayTo(state, finalRotation, SETTLE_MS, 'cubic-bezier(0.33,0.08,0.2,1)', commit);
     },
-    [animateOverlayTo],
+    [animateFadeTo, animateOverlayTo],
   );
 
   const go = useCallback(
@@ -158,10 +199,11 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       if (!state) return;
       setTurning(state);
       requestAnimationFrame(() => {
-        animateOverlayTo(state, direction > 0 ? FLIPPED : FLAT, TAP_TURN_MS, 'cubic-bezier(0.44,0.05,0.24,1)', true);
+        if (state.simple) animateFadeTo(state, 1, TAP_TURN_MS, 'ease-out', true);
+        else animateOverlayTo(state, direction > 0 ? FLIPPED : FLAT, TAP_TURN_MS, 'cubic-bezier(0.44,0.05,0.24,1)', true);
       });
     },
-    [animateOverlayTo, beginTurn, turning],
+    [animateFadeTo, animateOverlayTo, beginTurn, turning],
   );
 
   const onPointerDown = (event) => {
@@ -203,8 +245,12 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       rafId.current = null;
       if (!overlayRef.current || !drag.current) return;
       const progress = Math.min(1, Math.abs(drag.current.pendingDelta) / pageWidth);
-      const rotation = state.direction > 0 ? FLIPPED * progress : FLIPPED * (1 - progress);
-      overlayRef.current.style.transform = `rotateY(${rotation}deg)`;
+      if (state.turn.simple) {
+        overlayRef.current.style.opacity = String(progress);
+      } else {
+        const rotation = state.direction > 0 ? FLIPPED * progress : FLIPPED * (1 - progress);
+        overlayRef.current.style.transform = `rotateY(${rotation}deg)`;
+      }
       state.progress = progress;
     });
   };
@@ -241,39 +287,54 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       onPointerUp={zoom > 1 ? undefined : endPointer}
       onPointerCancel={zoom > 1 ? undefined : endPointer}
     >
-      <div
-        className={cn('relative flex items-stretch transition-transform duration-300 ease-out', !single && 'paper')}
-        style={{ transform: `scale(${zoom})`, transformStyle: 'preserve-3d', perspective: '2600px' }}
-      >
-        {double && !single ? (
-          <>
-            <PageFace page={current.left} crop={crop} width={pageWidth} height={pageHeight} onLink={onLink} />
-            <PageFace page={current.right} crop={crop} width={pageWidth} height={pageHeight} onLink={onLink} />
-          </>
-        ) : (
-          <PageFace page={current.right} crop={crop} width={pageWidth} height={pageHeight} onLink={onLink} standalone />
-        )}
-        {double && !single ? (
-          <div className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-[26px] -translate-x-1/2 bg-gradient-to-r from-black/0 via-black/12 to-black/0 lg:block" />
-        ) : null}
-        {turning ? (
+      {turning?.simple ? (
+        <div className="relative" style={{ transform: `scale(${zoom})` }}>
+          <div className="absolute inset-0 flex items-center justify-center">{renderSpread(turning.from)}</div>
           <div
             ref={overlayRef}
-            className="absolute inset-y-0"
-            style={{
-              left: turning.hingeLeft,
-              width: pageWidth,
-              transformOrigin: 'left center',
-              transformStyle: 'preserve-3d',
-              willChange: 'transform',
-              transform: `rotateY(${turning.direction > 0 ? FLAT : FLIPPED}deg)`,
-            }}
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ opacity: 0, willChange: 'opacity' }}
           >
-            <PageFace page={turning.front} face="front" crop={crop} onLink={onLink} />
-            <PageFace page={turning.back} face="back" crop={crop} onLink={onLink} />
+            {renderSpread(turning.to)}
           </div>
-        ) : null}
-      </div>
+          {/* Keeps the stage's own size matched to the departing spread while both layers sit absolutely. */}
+          <div className="invisible">{renderSpread(turning.from)}</div>
+        </div>
+      ) : (
+        <div
+          className={cn('relative flex items-stretch transition-transform duration-300 ease-out', !single && 'paper')}
+          style={{ transform: `scale(${zoom})`, transformStyle: 'preserve-3d', perspective: '2600px' }}
+        >
+          {double && !single ? (
+            <>
+              <PageFace page={current.left} crop={crop} width={pageWidth} height={pageHeight} onLink={onLink} />
+              <PageFace page={current.right} crop={crop} width={pageWidth} height={pageHeight} onLink={onLink} />
+            </>
+          ) : (
+            <PageFace page={current.right} crop={crop} width={pageWidth} height={pageHeight} onLink={onLink} standalone />
+          )}
+          {double && !single ? (
+            <div className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-[26px] -translate-x-1/2 bg-gradient-to-r from-black/0 via-black/12 to-black/0 lg:block" />
+          ) : null}
+          {turning ? (
+            <div
+              ref={overlayRef}
+              className="absolute inset-y-0"
+              style={{
+                left: turning.hingeLeft,
+                width: pageWidth,
+                transformOrigin: 'left center',
+                transformStyle: 'preserve-3d',
+                willChange: 'transform',
+                transform: `rotateY(${turning.direction > 0 ? FLAT : FLIPPED}deg)`,
+              }}
+            >
+              <PageFace page={turning.front} face="front" crop={crop} onLink={onLink} />
+              <PageFace page={turning.back} face="back" crop={crop} onLink={onLink} />
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {zoom <= 1 ? (
         <>
