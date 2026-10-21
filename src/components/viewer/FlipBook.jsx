@@ -170,6 +170,14 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
         finishTurn(state, commit);
         return;
       }
+      // Force the browser to commit/paint whatever style the element already
+      // has before switching the transition on. Without this read, React's
+      // render of the starting value and this rAF-scheduled mutation can
+      // both land before the next real paint — the browser then collapses
+      // them into one frame, so nothing visibly animates and, critically,
+      // transitionend never fires (there was no transition to end), leaving
+      // the swap stuck on the duration+150 fallback timer every time.
+      void el.offsetHeight;
       const onEnd = (event) => {
         if (event.target === el && event.propertyName === property) finishTurn(state, commit);
       };
