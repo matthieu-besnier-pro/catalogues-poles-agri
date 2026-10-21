@@ -10,7 +10,7 @@ export const IMAGE_LOAD_MODE = {
   FALLBACK: "fallback",
 }
 
-const DEVICE_PIXEL_RATIOS = [1, 2, 3]
+export const DEVICE_PIXEL_RATIOS = [1, 2, 3]
 const MAX_DIMENSION = 6000
 
 export function splitImageProps(props) {

@@ -1,23 +1,37 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import PageFace from '@/components/viewer/PageFace';
-import { buildTransformUrl, parseWixMediaUrl } from '@/components/ui/image-helpers';
+import { DEVICE_PIXEL_RATIOS, buildTransformUrl, parseWixMediaUrl } from '@/components/ui/image-helpers';
 import { buildSpreads } from '@/lib/spreads';
 import { cn } from '@/lib/utils';
 
 // Mirrors exactly what PageFace/ResponsiveImage requests for a page of this
-// size (fittingType="fit" => uncropped, default quality 90) — preloading the
-// raw page.image_url warms the wrong cache entry, since the real <img> asks
-// for this resized/optimized variant instead.
+// size (fittingType="fit" => uncropped, default quality 90). The real <img>
+// also carries a srcSet with 1x/2x/3x variants and the browser — not this
+// code — decides which one to actually fetch based on screen density; on
+// any Retina display that's the 2x (or 3x) URL, never the plain one, so
+// preloading only the bare width/height warmed a cache entry the browser
+// was never going to use. Preload every candidate so whichever one wins is
+// already warm.
 function preloadPage(url, width, height) {
   if (!url || width <= 0 || height <= 0) return;
   const parsed = parseWixMediaUrl(url);
-  const target = parsed
-    ? buildTransformUrl(parsed, { width: Math.round(width), height: Math.round(height), crop: false, quality: 90 })
-    : url;
-  const image = new window.Image();
-  image.src = target;
-  image.decode?.().catch(() => {});
+  if (!parsed) {
+    const image = new window.Image();
+    image.src = url;
+    image.decode?.().catch(() => {});
+    return;
+  }
+  DEVICE_PIXEL_RATIOS.forEach((dpr) => {
+    // buildTransformUrl rounds internally (clampDim) — rounding here too, on
+    // a different intermediate value than buildSrcSet's own `width * dpr`,
+    // can land one pixel off and silently build a different URL than the
+    // one the <img> will actually request.
+    const target = buildTransformUrl(parsed, { width: width * dpr, height: height * dpr, crop: false, quality: 90 });
+    const image = new window.Image();
+    image.src = target;
+    image.decode?.().catch(() => {});
+  });
 }
 
 const SETTLE_MS = 380;
