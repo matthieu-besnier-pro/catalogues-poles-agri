@@ -41,6 +41,18 @@ const COMMIT_RATIO = 0.4;
 
 const isSingleSlot = (spread) => !(spread?.left && spread?.right);
 
+// How far the incoming spread still has to travel at a given progress (0 =
+// not arrived yet, 1 = settled) — a slight slide-and-tilt in the direction
+// of travel, so the new spread reads as arriving/turning in rather than
+// just dissolving in place.
+const ENTER_OFFSET = 36;
+const ENTER_TILT = 8;
+const enterTransform = (direction, progress) => {
+  const remaining = 1 - progress;
+  const sign = direction > 0 ? 1 : -1;
+  return `perspective(1600px) translateX(${sign * ENTER_OFFSET * remaining}px) rotateY(${sign * ENTER_TILT * remaining}deg)`;
+};
+
 export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, crop, zoom = 1, containerRef }) {
   const [double, setDouble] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
   const [turning, setTurning] = useState(null);
@@ -141,21 +153,22 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   );
 
   const animateFadeTo = useCallback(
-    (state, finalOpacity, duration, easing, commit) => {
+    (state, finalProgress, duration, easing, commit) => {
       const el = overlayRef.current;
       if (!el) {
         finishTurn(state, commit);
         return;
       }
-      // Force the browser to commit/paint the starting opacity before
-      // switching the transition on — otherwise React's render of it and
-      // this rAF-scheduled mutation can land in the same frame and get
+      // Force the browser to commit/paint the starting opacity/transform
+      // before switching the transition on — otherwise React's render of it
+      // and this rAF-scheduled mutation can land in the same frame and get
       // collapsed into one paint, so nothing visibly animates.
       void el.offsetHeight;
       const timer = window.setTimeout(() => finishTurn(state, commit), duration);
       activeTurn.current = { timer };
-      el.style.transition = `opacity ${duration}ms ${easing}`;
-      el.style.opacity = String(finalOpacity);
+      el.style.transition = `opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`;
+      el.style.opacity = String(finalProgress);
+      el.style.transform = enterTransform(state.direction, finalProgress);
     },
     [finishTurn],
   );
@@ -215,6 +228,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       if (!overlayRef.current || !drag.current) return;
       const progress = Math.min(1, Math.abs(drag.current.pendingDelta) / pageWidth);
       overlayRef.current.style.opacity = String(progress);
+      overlayRef.current.style.transform = enterTransform(state.turn.direction, progress);
       state.progress = progress;
     });
   };
@@ -258,7 +272,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
           <div
             ref={overlayRef}
             className="absolute inset-0 flex items-center justify-center"
-            style={{ opacity: 0, willChange: 'opacity' }}
+            style={{ opacity: 0, transform: enterTransform(turning.direction, 0), willChange: 'opacity, transform' }}
           >
             {renderSpread(turning.to)}
           </div>
