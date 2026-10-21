@@ -73,10 +73,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   }, [containerRef, pages.length, double]);
 
   useEffect(() => () => {
-    if (activeTurn.current) {
-      activeTurn.current.el.removeEventListener('transitionend', activeTurn.current.onEnd);
-      window.clearTimeout(activeTurn.current.timer);
-    }
+    if (activeTurn.current) window.clearTimeout(activeTurn.current.timer);
     if (rafId.current) cancelAnimationFrame(rafId.current);
   }, []);
 
@@ -143,17 +140,14 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
     [double, pageWidth, spreadIndex, spreads],
   );
 
-  // Swaps the static spread over to the new page only once the overlay's own
-  // transition has actually finished painting — a parallel setTimeout can
-  // fire a frame or two before the CSS transition it's meant to track (it
-  // starts counting before the rAF-delayed transition even begins), which
-  // swaps the content early and leaves the old page visible for a beat
-  // after the flip looks done. transitionend can't drift like that; the
-  // timeout stays only as a safety net in case it never fires.
+  // Swaps the static spread over to the new page once the overlay's own
+  // transition is due to finish. Timed by a plain setTimeout — not
+  // transitionend, which this code relied on before but which testing showed
+  // never actually fires here, turning every flip's safety-net padding into
+  // a fixed, repeatable delay rather than a rare fallback.
   const finishTurn = useCallback(
     (state, commit) => {
       if (activeTurn.current) {
-        activeTurn.current.el.removeEventListener('transitionend', activeTurn.current.onEnd);
         window.clearTimeout(activeTurn.current.timer);
         activeTurn.current = null;
       }
@@ -171,19 +165,19 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
         return;
       }
       // Force the browser to commit/paint whatever style the element already
-      // has before switching the transition on. Without this read, React's
-      // render of the starting value and this rAF-scheduled mutation can
-      // both land before the next real paint — the browser then collapses
-      // them into one frame, so nothing visibly animates and, critically,
-      // transitionend never fires (there was no transition to end), leaving
-      // the swap stuck on the duration+150 fallback timer every time.
+      // has before switching the transition on — otherwise React's render of
+      // the starting value and this rAF-scheduled mutation can land in the
+      // same frame and get collapsed into one paint, so nothing visibly
+      // animates.
       void el.offsetHeight;
-      const onEnd = (event) => {
-        if (event.target === el && event.propertyName === property) finishTurn(state, commit);
-      };
-      el.addEventListener('transitionend', onEnd);
-      const timer = window.setTimeout(() => finishTurn(state, commit), duration + 150);
-      activeTurn.current = { el, onEnd, timer };
+      // transitionend turned out not to be trustworthy here (never fired, by
+      // every account from testing), which meant every single flip fell back
+      // to the safety timer and its extra padding — a fixed, repeatable
+      // delay, not a flaky one. Dropped the listener and the padding: the
+      // timer is started in this same call as the transition itself, so
+      // `duration` alone already lines up with it.
+      const timer = window.setTimeout(() => finishTurn(state, commit), duration);
+      activeTurn.current = { el, timer };
       el.style.transition = `${property} ${duration}ms ${easing}`;
       el.style[property] = value;
     },
