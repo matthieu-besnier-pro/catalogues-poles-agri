@@ -24,6 +24,12 @@ const SETTLE_MS = 380;
 const TAP_TURN_MS = 520;
 const DRAG_THRESHOLD = 6;
 const COMMIT_RATIO = 0.4;
+// Not -180: browsers can flicker/mis-paint backface-visibility right at the
+// exact 180° boundary between the two faces (the original CSS keyframes this
+// drag logic replaced used -179.5 for the same reason). Landing a hair short
+// of it keeps the back face unambiguously the one on screen at rest.
+const FLIPPED = -179.9;
+const FLAT = 0;
 
 const isSingleSlot = (spread) => !(spread?.left && spread?.right);
 
@@ -139,7 +145,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
   const settle = useCallback(
     (state, commit) => {
       const forward = state.direction > 0;
-      const finalRotation = commit ? (forward ? -180 : 0) : (forward ? 0 : -180);
+      const finalRotation = commit ? (forward ? FLIPPED : FLAT) : (forward ? FLAT : FLIPPED);
       animateOverlayTo(state, finalRotation, SETTLE_MS, 'cubic-bezier(0.33,0.08,0.2,1)', commit);
     },
     [animateOverlayTo],
@@ -152,7 +158,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       if (!state) return;
       setTurning(state);
       requestAnimationFrame(() => {
-        animateOverlayTo(state, direction > 0 ? -180 : 0, TAP_TURN_MS, 'cubic-bezier(0.44,0.05,0.24,1)', true);
+        animateOverlayTo(state, direction > 0 ? FLIPPED : FLAT, TAP_TURN_MS, 'cubic-bezier(0.44,0.05,0.24,1)', true);
       });
     },
     [animateOverlayTo, beginTurn, turning],
@@ -197,7 +203,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
       rafId.current = null;
       if (!overlayRef.current || !drag.current) return;
       const progress = Math.min(1, Math.abs(drag.current.pendingDelta) / pageWidth);
-      const rotation = state.direction > 0 ? -180 * progress : -180 * (1 - progress);
+      const rotation = state.direction > 0 ? FLIPPED * progress : FLIPPED * (1 - progress);
       overlayRef.current.style.transform = `rotateY(${rotation}deg)`;
       state.progress = progress;
     });
@@ -260,7 +266,7 @@ export default function FlipBook({ pages, spreadIndex, onSpreadChange, onLink, c
               transformOrigin: 'left center',
               transformStyle: 'preserve-3d',
               willChange: 'transform',
-              transform: `rotateY(${turning.direction > 0 ? 0 : -180}deg)`,
+              transform: `rotateY(${turning.direction > 0 ? FLAT : FLIPPED}deg)`,
             }}
           >
             <PageFace page={turning.front} face="front" crop={crop} onLink={onLink} />

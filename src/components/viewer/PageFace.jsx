@@ -16,7 +16,11 @@ export default function PageFace({ page, face = 'static', crop, width, height, l
       style={{
         width: isOverlay ? undefined : width,
         height: isOverlay ? undefined : height,
-        transform: face === 'back' ? 'rotateY(180deg)' : undefined,
+        // 179.9, not 180: combined with the parent's own rotation this face
+        // rides on, landing exactly on the 180° backface-visibility boundary
+        // at rest is what let the page underneath flicker back into view
+        // right after a flip settled.
+        transform: face === 'back' ? 'rotateY(179.9deg)' : undefined,
         backfaceVisibility: isOverlay ? 'hidden' : undefined,
         boxShadow: isOverlay
           ? undefined
