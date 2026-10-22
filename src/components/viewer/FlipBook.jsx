@@ -19,6 +19,13 @@ const FlipBook = forwardRef(function FlipBook({ pages, startPage = 1, onFlip, on
   // reader actually is so that remount reopens on the same page instead of
   // snapping back to wherever the book first opened.
   const pageRef = useRef(Math.max(0, startPage - 1));
+  // showCover correctly keeps the front/back cover from pairing with a
+  // neighbour, but react-pageflip still docks that lone page into one half
+  // of the double-page frame (front cover on the right, back cover on the
+  // left) rather than centering it — leaving a blank half next to it. Track
+  // which page is showing so the whole book can be nudged sideways by half a
+  // page width exactly on those two pages, undoing that offset.
+  const [activePage, setActivePage] = useState(pageRef.current);
   // Decide single- vs double-page ourselves rather than trust the library's
   // own container-based heuristic (it was defaulting to single-page even on
   // wide desktop viewports).
@@ -71,6 +78,14 @@ const FlipBook = forwardRef(function FlipBook({ pages, startPage = 1, onFlip, on
   const pageWidth = Math.round(pageHeight * safeRatio);
   const ready = area.width > 0 && area.height > 0;
 
+  const coverShift = isNarrow
+    ? 0
+    : activePage === 0
+      ? -pageWidth / 2
+      : activePage === last
+        ? pageWidth / 2
+        : 0;
+
   return (
     <div ref={containerRef} className="relative flex h-full w-full items-center justify-center overflow-auto">
       {ready ? (
@@ -88,14 +103,15 @@ const FlipBook = forwardRef(function FlipBook({ pages, startPage = 1, onFlip, on
           startPage={Math.min(Math.max(0, pageRef.current), last)}
           onFlip={(event) => {
             pageRef.current = event.data;
+            setActivePage(event.data);
             onFlip(event.data);
           }}
           className="paper"
-          style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+          style={{ transform: `scale(${zoom}) translateX(${coverShift}px)`, transformOrigin: 'center center' }}
         >
           {pages.map((page, index) => (
             <div key={page.id || page.page_number} className="page bg-white" data-density={index === 0 || index === last ? 'hard' : 'soft'}>
-              <PageFace page={page} crop={crop} onLink={onLink} eager={index < 2} />
+              <PageFace page={page} crop={crop} onLink={onLink} />
             </div>
           ))}
         </HTMLFlipBook>

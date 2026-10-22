@@ -9,7 +9,13 @@ import { mapLinkToCrop } from '@/lib/format';
 // image than what was actually being displayed (blurry, upscaled pages).
 // The page images are already served at a sensible resolution for full-screen
 // reading, so there's nothing to gain from trying to match display size here.
-export default function PageFace({ page, crop, linksEnabled = true, onLink, eager = false }) {
+// Loaded eagerly: react-pageflip mounts every page upfront rather than only
+// the visible ones, and `loading="lazy"` left the browser to guess whether a
+// page positioned by the library counted as "near the viewport" — it often
+// guessed wrong, so a page turn could land on one that hadn't started
+// downloading yet (a blank page that then pops in). Catalogues here run a
+// few dozen pages, not hundreds, so loading them all up front is cheap.
+export default function PageFace({ page, crop, linksEnabled = true, onLink }) {
   const links = linksEnabled && page?.links?.length
     ? page.links.map((link) => ({ ...mapLinkToCrop(link, crop), url: link.url, page: link.page, label: link.label }))
     : [];
@@ -22,7 +28,7 @@ export default function PageFace({ page, crop, linksEnabled = true, onLink, eage
             src={page.image_url}
             alt={`Page ${page.page_number}`}
             className="h-full w-full object-contain"
-            loading={eager ? 'eager' : 'lazy'}
+            loading="eager"
             draggable={false}
           />
           {linksEnabled ? <LinkZones links={links} onFollow={onLink} /> : null}
