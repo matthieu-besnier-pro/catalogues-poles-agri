@@ -39,33 +39,39 @@ const FlipBook = forwardRef(function FlipBook({ pages, startPage = 1, onFlip, on
   const last = pages.length - 1;
 
   return (
+    // react-pageflip's size="stretch" measures its own direct parent to
+    // decide how big to render — it must be THIS div (already sized by flex
+    // layout from above), not some intermediate unsized wrapper, or it falls
+    // back to the literal width/height props (a small, fixed size that then
+    // makes even a full-resolution page image look tiny and soft). The zoom
+    // scale is applied to the book's own root via its style prop instead of
+    // a wrapping div, so it can't get in the way of that measurement.
     <div ref={containerRef} className="relative flex h-full w-full items-center justify-center overflow-auto">
-      <div style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}>
-        <HTMLFlipBook
-          ref={bookRef}
-          width={baseWidth}
-          height={baseHeight}
-          size="stretch"
-          minWidth={200}
-          maxWidth={1400}
-          minHeight={280}
-          maxHeight={2000}
-          showCover
-          usePortrait={isNarrow}
-          mobileScrollSupport={false}
-          drawShadow
-          flippingTime={420}
-          startPage={Math.min(Math.max(0, startPage - 1), last)}
-          onFlip={(event) => onFlip(event.data)}
-          className="paper"
-        >
-          {pages.map((page, index) => (
-            <div key={page.id || page.page_number} className="page bg-white" data-density={index === 0 || index === last ? 'hard' : 'soft'}>
-              <PageFace page={page} crop={crop} onLink={onLink} eager={index < 2} />
-            </div>
-          ))}
-        </HTMLFlipBook>
-      </div>
+      <HTMLFlipBook
+        ref={bookRef}
+        width={baseWidth}
+        height={baseHeight}
+        size="stretch"
+        minWidth={200}
+        maxWidth={1400}
+        minHeight={280}
+        maxHeight={2000}
+        showCover
+        usePortrait={isNarrow}
+        mobileScrollSupport={false}
+        drawShadow
+        flippingTime={420}
+        startPage={Math.min(Math.max(0, startPage - 1), last)}
+        onFlip={(event) => onFlip(event.data)}
+        className="paper"
+        style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+      >
+        {pages.map((page, index) => (
+          <div key={page.id || page.page_number} className="page bg-white" data-density={index === 0 || index === last ? 'hard' : 'soft'}>
+            <PageFace page={page} crop={crop} onLink={onLink} eager={index < 2} />
+          </div>
+        ))}
+      </HTMLFlipBook>
     </div>
   );
 });
