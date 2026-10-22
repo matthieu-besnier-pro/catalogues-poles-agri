@@ -20,11 +20,12 @@ const FlipBook = forwardRef(function FlipBook({ pages, startPage = 1, onFlip, on
   // snapping back to wherever the book first opened.
   const pageRef = useRef(Math.max(0, startPage - 1));
   // showCover correctly keeps the front/back cover from pairing with a
-  // neighbour, but react-pageflip still docks that lone page into one half
-  // of the double-page frame (front cover on the right, back cover on the
-  // left) rather than centering it — leaving a blank half next to it. Track
-  // which page is showing so the whole book can be nudged sideways by half a
-  // page width exactly on those two pages, undoing that offset.
+  // neighbour, but react-pageflip still renders them inside the full
+  // double-page frame — the lone page docked to one half, the other half
+  // blank. Nudging it sideways alone just moves the blank half to the other
+  // edge instead of removing it, since the frame itself stays double-width;
+  // tracking the current page lets a clipping window (below) hide that
+  // other half outright on exactly those two pages.
   const [activePage, setActivePage] = useState(pageRef.current);
   // Decide single- vs double-page ourselves rather than trust the library's
   // own container-based heuristic (it was defaulting to single-page even on
@@ -78,43 +79,50 @@ const FlipBook = forwardRef(function FlipBook({ pages, startPage = 1, onFlip, on
   const pageWidth = Math.round(pageHeight * safeRatio);
   const ready = area.width > 0 && area.height > 0;
 
-  const coverShift = isNarrow
-    ? 0
-    : activePage === 0
-      ? -pageWidth / 2
-      : activePage === last
-        ? pageWidth / 2
-        : 0;
+  // The front cover docks into the RIGHT half of the double-page frame, the
+  // back cover into the LEFT half (observed empirically) — shift the inner
+  // book so the real content lands at the window's origin, then clip the
+  // window itself down to one page width so the other, blank half is
+  // actually hidden rather than just relocated.
+  const isCover = !isNarrow && (activePage === 0 || activePage === last);
+  const innerLeft = isCover && activePage === 0 ? -pageWidth : 0;
+  const frameWidth = isCover ? pageWidth : pageWidth * (isNarrow ? 1 : 2);
 
   return (
     <div ref={containerRef} className="relative flex h-full w-full items-center justify-center overflow-auto">
       {ready ? (
-        <HTMLFlipBook
-          key={`${isNarrow ? 'single' : 'double'}-${pageWidth}-${pageHeight}`}
-          ref={bookRef}
-          width={pageWidth}
-          height={pageHeight}
-          size="fixed"
-          showCover
-          usePortrait={isNarrow}
-          mobileScrollSupport={false}
-          drawShadow
-          flippingTime={420}
-          startPage={Math.min(Math.max(0, pageRef.current), last)}
-          onFlip={(event) => {
-            pageRef.current = event.data;
-            setActivePage(event.data);
-            onFlip(event.data);
-          }}
-          className="paper"
-          style={{ transform: `scale(${zoom}) translateX(${coverShift}px)`, transformOrigin: 'center center' }}
+        <div
+          className="relative overflow-hidden"
+          style={{ width: frameWidth, height: pageHeight, transform: `scale(${zoom})`, transformOrigin: 'center center' }}
         >
-          {pages.map((page, index) => (
-            <div key={page.id || page.page_number} className="page bg-white" data-density={index === 0 || index === last ? 'hard' : 'soft'}>
-              <PageFace page={page} crop={crop} onLink={onLink} />
-            </div>
-          ))}
-        </HTMLFlipBook>
+          <div className="absolute top-0" style={{ left: innerLeft }}>
+            <HTMLFlipBook
+              key={`${isNarrow ? 'single' : 'double'}-${pageWidth}-${pageHeight}`}
+              ref={bookRef}
+              width={pageWidth}
+              height={pageHeight}
+              size="fixed"
+              showCover
+              usePortrait={isNarrow}
+              mobileScrollSupport={false}
+              drawShadow
+              flippingTime={420}
+              startPage={Math.min(Math.max(0, pageRef.current), last)}
+              onFlip={(event) => {
+                pageRef.current = event.data;
+                setActivePage(event.data);
+                onFlip(event.data);
+              }}
+              className="paper"
+            >
+              {pages.map((page, index) => (
+                <div key={page.id || page.page_number} className="page bg-white" data-density={index === 0 || index === last ? 'hard' : 'soft'}>
+                  <PageFace page={page} crop={crop} onLink={onLink} />
+                </div>
+              ))}
+            </HTMLFlipBook>
+          </div>
+        </div>
       ) : null}
     </div>
   );
