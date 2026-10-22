@@ -1,15 +1,20 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { BarChart3, Library, Plus, Sprout } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 import { cn } from '@/lib/utils';
 
 const NAV = [
   { to: '/', label: 'Catalogues', icon: Library, end: true },
-  { to: '/nouveau', label: 'Nouveau', icon: Plus },
-  { to: '/statistiques', label: 'Statistiques', icon: BarChart3 },
-  { to: '/poles', label: 'Pôles', icon: Sprout },
+  { to: '/nouveau', label: 'Nouveau', icon: Plus, adminOnly: true },
+  { to: '/statistiques', label: 'Statistiques', icon: BarChart3, adminOnly: true },
+  { to: '/poles', label: 'Pôles', icon: Sprout, adminOnly: true },
 ];
 
 export default function StudioLayout() {
+  const { isAuthenticated, user } = useAuth();
+  const isAdmin = isAuthenticated && user?.role === 'admin';
+  const items = NAV.filter((item) => !item.adminOnly || isAdmin);
+
   return (
     <div className="flex min-h-screen flex-col bg-background lg:flex-row">
       <aside className="flex flex-col bg-primary text-primary-foreground lg:w-[272px] lg:shrink-0">
@@ -18,7 +23,7 @@ export default function StudioLayout() {
           <p className="text-[11px] uppercase tracking-[0.32em] text-accent lg:mt-2.5">Pôles Agri</p>
         </div>
         <nav className="hide-scrollbar flex gap-1 overflow-x-auto px-3 pb-4 lg:flex-col lg:overflow-visible">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {items.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}

@@ -4,9 +4,9 @@ import { Image } from '@/components/ui/image';
 import StatusBadge from '@/components/studio/StatusBadge';
 import { formatDate, formatNumber } from '@/lib/format';
 
-export default function CatalogueCard({ catalogue, viewCount }) {
+export default function CatalogueCard({ catalogue, viewCount, to }) {
   return (
-    <Link to={`/catalogue/${catalogue.id}`} className="group block">
+    <Link to={to || `/catalogue/${catalogue.id}`} className="group block">
       <div className="paper-soft relative aspect-[3/4] overflow-hidden rounded-lg border border-border bg-secondary">
         {catalogue.cover_url ? (
           <Image

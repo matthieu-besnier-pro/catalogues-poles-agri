@@ -48,6 +48,9 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
+      <Route element={<StudioLayout />}>
+        <Route path="/" element={<StudioHome />} />
+      </Route>
       <Route
         element={
           <RequireAdmin>
@@ -55,7 +58,6 @@ const AuthenticatedApp = () => {
           </RequireAdmin>
         }
       >
-        <Route path="/" element={<StudioHome />} />
         <Route path="/nouveau" element={<ImportWizard />} />
         <Route path="/nouveau/masse" element={<BulkImportWizard />} />
         <Route path="/catalogue/:id" element={<CatalogueDetail />} />
