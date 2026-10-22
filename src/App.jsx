@@ -17,6 +17,10 @@ import StatsDashboard from '@/pages/StatsDashboard';
 import PolesManager from '@/pages/PolesManager';
 import PublicViewer from '@/pages/PublicViewer';
 import EmbedViewer from '@/pages/EmbedViewer';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -60,6 +64,10 @@ const AuthenticatedApp = () => {
       </Route>
       <Route path="/c/:slug" element={<PublicViewer />} />
       <Route path="/c/:slug/embed" element={<EmbedViewer />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
