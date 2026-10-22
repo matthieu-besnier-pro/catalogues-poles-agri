@@ -8,12 +8,13 @@ import CataloguePreviewTab from '@/components/studio/CataloguePreviewTab';
 import CatalogueSettingsTab from '@/components/studio/CatalogueSettingsTab';
 import CatalogueStatsTab from '@/components/studio/CatalogueStatsTab';
 import ConversionProgress from '@/components/studio/ConversionProgress';
+import CropEditor from '@/components/studio/CropEditor';
 import ShareBox from '@/components/studio/ShareBox';
 import StatusBadge from '@/components/studio/StatusBadge';
 import VersionList from '@/components/studio/VersionList';
 import { useToast } from '@/components/ui/use-toast';
 import { openPdfFile } from '@/lib/pdfEngine';
-import { replaceCataloguePdf } from '@/lib/publishCatalogue';
+import { NO_CROP, replaceCataloguePdf } from '@/lib/publishCatalogue';
 import { absoluteUrl, publicPath } from '@/lib/format';
 
 export default function CatalogueDetail() {
@@ -29,6 +30,14 @@ export default function CatalogueDetail() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('diffusion');
+  const [cropDoc, setCropDoc] = useState(null);
+  const [cropFile, setCropFile] = useState(null);
+  const [cropValue, setCropValue] = useState(NO_CROP);
+  const [cropLoading, setCropLoading] = useState(false);
+  const [cropBusy, setCropBusy] = useState(false);
+  const [cropProgress, setCropProgress] = useState(null);
+  const [cropError, setCropError] = useState('');
 
   const load = async () => {
     const found = await base44.entities.Catalogue.filter({ id }, { limit: 1 });
@@ -110,6 +119,63 @@ export default function CatalogueDetail() {
     }
   };
 
+  // Loaded only once the "Recadrage" tab is actually opened — re-cropping
+  // means pulling the already-published PDF back down and re-reading it with
+  // pdf.js, which there's no reason to pay for on every catalogue page visit.
+  useEffect(() => {
+    if (activeTab !== 'recadrage' || cropDoc || cropLoading || !catalogue?.pdf_file_uri) return undefined;
+    let active = true;
+    setCropLoading(true);
+    (async () => {
+      try {
+        const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({
+          file_uri: catalogue.pdf_file_uri,
+          expires_in: 900,
+        });
+        const response = await fetch(signed_url);
+        const blob = await response.blob();
+        const file = new File([blob], catalogue.pdf_file_name || 'catalogue.pdf', { type: 'application/pdf' });
+        const opened = await openPdfFile(file);
+        if (!active) return;
+        releaseRef.current?.();
+        releaseRef.current = opened.release;
+        setCropFile(file);
+        setCropDoc(opened.doc);
+        setCropValue(catalogue.crop || NO_CROP);
+      } catch (err) {
+        if (active) toast({ title: 'Impossible de charger le PDF', description: err?.message || '' });
+      } finally {
+        if (active) setCropLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, catalogue?.pdf_file_uri]);
+
+  const applyCrop = async () => {
+    setCropBusy(true);
+    setCropError('');
+    setCropProgress({ percent: 0, stage: 'Application du recadrage' });
+    try {
+      const result = await replaceCataloguePdf({
+        file: cropFile,
+        doc: cropDoc,
+        catalogue,
+        crop: cropValue,
+        label: 'Recadrage',
+        onProgress: setCropProgress,
+      });
+      toast({ title: 'Recadrage appliqué', description: `${result.pageCount} pages régénérées.` });
+      await load();
+    } catch (err) {
+      setCropError(err?.message || 'Le recadrage a échoué.');
+    } finally {
+      setCropBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -177,10 +243,11 @@ export default function CatalogueDetail() {
         </div>
       </header>
 
-      <Tabs defaultValue="diffusion" className="mt-10">
+      <Tabs defaultValue="diffusion" onValueChange={setActiveTab} className="mt-10">
         <TabsList className="flex flex-wrap">
           <TabsTrigger value="diffusion">Diffusion</TabsTrigger>
           <TabsTrigger value="apercu">Aperçu</TabsTrigger>
+          <TabsTrigger value="recadrage">Recadrage</TabsTrigger>
           <TabsTrigger value="reglages">Réglages</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
           <TabsTrigger value="statistiques">Statistiques</TabsTrigger>
@@ -219,6 +286,41 @@ export default function CatalogueDetail() {
 
         <TabsContent value="apercu" className="mt-8">
           <CataloguePreviewTab catalogue={catalogue} pages={pages} />
+        </TabsContent>
+
+        <TabsContent value="recadrage" className="mt-8">
+          {cropLoading ? (
+            <div className="flex items-center justify-center gap-3 rounded-xl border border-border bg-card p-14 text-sm text-muted-foreground">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+              Chargement du PDF…
+            </div>
+          ) : cropDoc ? (
+            <div className="space-y-6">
+              <CropEditor doc={cropDoc} crop={cropValue} onChange={setCropValue} />
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  disabled={cropBusy}
+                  onClick={() => setCropValue(catalogue.crop || NO_CROP)}
+                >
+                  Annuler les changements
+                </Button>
+                <Button className="rounded-full px-6" disabled={cropBusy} onClick={applyCrop}>
+                  {cropBusy ? 'Application…' : 'Appliquer le nouveau recadrage'}
+                </Button>
+              </div>
+              {cropBusy || cropError ? (
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <ConversionProgress progress={cropProgress} error={cropError} onRetry={applyCrop} />
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-dashed border-border bg-card/60 p-10 text-center text-sm text-muted-foreground">
+              Le PDF d’origine n’est pas disponible pour ce catalogue.
+            </p>
+          )}
         </TabsContent>
 
         <TabsContent value="reglages" className="mt-8">
