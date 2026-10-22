@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import CoverScreen from '@/components/viewer/CoverScreen';
@@ -9,7 +9,6 @@ import ViewerFooter from '@/components/viewer/ViewerFooter';
 import ViewerToolbar from '@/components/viewer/ViewerToolbar';
 import { useToast } from '@/components/ui/use-toast';
 import { absoluteUrl, copyText, publicPath } from '@/lib/format';
-import { buildSpreads, findSpreadIndex, isDoublePage, spreadPageNumbers } from '@/lib/spreads';
 import { trackEvent } from '@/lib/tracking';
 
 const ZOOM_STEPS = [1, 1.4, 1.9, 2.5];
@@ -26,12 +25,16 @@ export default function PublicViewer({ embedded = false }) {
   const [pages, setPages] = useState([]);
   const [opened, setOpened] = useState(embedded);
   const [panel, setPanel] = useState(null);
-  const [spreadIndex, setSpreadIndex] = useState(0);
-  const [double, setDouble] = useState(() => isDoublePage());
+  const [currentPage, setCurrentPage] = useState(() => Math.max(1, startPage || 1));
   const [zoomIndex, setZoomIndex] = useState(0);
   const shellRef = useRef(null);
   const stageRef = useRef(null);
+  const bookRef = useRef(null);
   const seen = useRef(new Set());
+  // react-pageflip only reads startPage once, on mount — keep it stable so a
+  // later currentPage update (from the user's own flipping) never looks like
+  // a request to jump the book back to where it opened.
+  const initialPage = useRef(Math.max(1, startPage || 1)).current;
 
   useEffect(() => {
     let active = true;
@@ -83,25 +86,6 @@ export default function PublicViewer({ embedded = false }) {
   }, [status, catalogue?.active_version_id]);
 
   useEffect(() => {
-    const onResize = () => setDouble(isDoublePage());
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  const spreads = useMemo(() => buildSpreads(pages, double), [pages, double]);
-  const current = spreads[Math.min(spreadIndex, Math.max(0, spreads.length - 1))] || null;
-  const spreadNumbers = spreadPageNumbers(current);
-  const spreadKey = spreadNumbers.join('-');
-
-  useEffect(() => {
-    if (!spreads.length) return;
-    setSpreadIndex((value) => {
-      const target = startPage ? findSpreadIndex(spreads, startPage) : value;
-      return Math.min(Math.max(0, target), spreads.length - 1);
-    });
-  }, [spreads, startPage]);
-
-  useEffect(() => {
     if (!catalogue) return undefined;
     const previous = document.title;
     document.title = `${catalogue.title}${catalogue.pole_name ? ` · ${catalogue.pole_name}` : ''}`;
@@ -125,37 +109,33 @@ export default function PublicViewer({ embedded = false }) {
   }, [status, opened, catalogue]);
 
   useEffect(() => {
-    if (status !== 'ready' || !opened || !spreadKey) return;
-    spreadNumbers.forEach((number) => {
-      if (seen.current.has(`p${number}`)) return;
-      seen.current.add(`p${number}`);
-      trackEvent({ catalogue, type: 'page', pageNumber: number }).catch(() => {});
-    });
-    if (pages.length && spreadNumbers.includes(pages.length) && !seen.current.has('done')) {
+    if (status !== 'ready' || !opened || !currentPage) return;
+    if (!seen.current.has(`p${currentPage}`)) {
+      seen.current.add(`p${currentPage}`);
+      trackEvent({ catalogue, type: 'page', pageNumber: currentPage }).catch(() => {});
+    }
+    if (pages.length && currentPage >= pages.length && !seen.current.has('done')) {
       seen.current.add('done');
       trackEvent({ catalogue, type: 'full_read', pageNumber: pages.length }).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spreadKey, pages.length, opened, status]);
+  }, [currentPage, pages.length, opened, status]);
 
   useEffect(() => {
     if (!opened) return undefined;
     const onKey = (event) => {
-      if (event.key === 'ArrowRight') setSpreadIndex((index) => Math.min(spreads.length - 1, index + 1));
-      if (event.key === 'ArrowLeft') setSpreadIndex((index) => Math.max(0, index - 1));
+      if (event.key === 'ArrowRight') bookRef.current?.flipNext();
+      if (event.key === 'ArrowLeft') bookRef.current?.flipPrev();
       if (event.key === 'Escape') setPanel(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [opened, spreads.length]);
+  }, [opened]);
 
-  const goToPage = useCallback(
-    (pageNumber) => {
-      setSpreadIndex(findSpreadIndex(spreads, pageNumber));
-      setPanel(null);
-    },
-    [spreads],
-  );
+  const goToPage = (pageNumber) => {
+    bookRef.current?.flip(pageNumber);
+    setPanel(null);
+  };
 
   const handleDownload = async () => {
     if (!catalogue.pdf_file_uri) return;
@@ -168,7 +148,7 @@ export default function PublicViewer({ embedded = false }) {
   };
 
   const handleShare = async () => {
-    const target = absoluteUrl(`${publicPath(catalogue.slug)}${spreadNumbers[0] > 1 ? `?p=${spreadNumbers[0]}` : ''}`);
+    const target = absoluteUrl(`${publicPath(catalogue.slug)}${currentPage > 1 ? `?p=${currentPage}` : ''}`);
     try {
       if (navigator.share) {
         await navigator.share({ title: catalogue.title, url: target });
@@ -243,9 +223,10 @@ export default function PublicViewer({ embedded = false }) {
       <div className="grain min-h-0 flex-1 p-3 lg:p-6">
         {pages.length ? (
           <FlipBook
+            ref={bookRef}
             pages={pages}
-            spreadIndex={spreadIndex}
-            onSpreadChange={setSpreadIndex}
+            startPage={initialPage}
+            onFlip={(pageIndex) => setCurrentPage(pageIndex + 1)}
             onLink={handleLink}
             crop={catalogue.crop}
             zoom={ZOOM_STEPS[zoomIndex]}
@@ -260,14 +241,11 @@ export default function PublicViewer({ embedded = false }) {
       </div>
 
       <ViewerFooter
-        firstPage={spreadNumbers[0]}
-        lastPage={spreadNumbers[1]}
+        currentPage={currentPage}
         totalPages={pages.length}
-        index={spreadIndex}
-        count={spreads.length}
-        onPrev={() => setSpreadIndex((index) => Math.max(0, index - 1))}
-        onNext={() => setSpreadIndex((index) => Math.min(spreads.length - 1, index + 1))}
-        onSeek={(value) => setSpreadIndex(value)}
+        onPrev={() => bookRef.current?.flipPrev()}
+        onNext={() => bookRef.current?.flipNext()}
+        onSeek={(value) => bookRef.current?.flip(value)}
       />
 
       <SidePanel
