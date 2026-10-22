@@ -18,12 +18,13 @@ export default function PublicViewer({ embedded = false }) {
   const [params] = useSearchParams();
   const reviewToken = params.get('rev');
   const startPage = Number(params.get('p')) || 0;
+  const directOpen = params.get('open') === '1';
   const { toast } = useToast();
 
   const [catalogue, setCatalogue] = useState(null);
   const [status, setStatus] = useState('loading');
   const [pages, setPages] = useState([]);
-  const [opened, setOpened] = useState(embedded);
+  const [opened, setOpened] = useState(embedded || directOpen);
   const [panel, setPanel] = useState(null);
   const [currentPage, setCurrentPage] = useState(() => Math.max(1, startPage || 1));
   const [zoomIndex, setZoomIndex] = useState(0);

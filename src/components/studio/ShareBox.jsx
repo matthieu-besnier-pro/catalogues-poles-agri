@@ -26,6 +26,7 @@ function Field({ label, value, onCopied }) {
 
 export default function ShareBox({ catalogue, onCopied }) {
   const link = absoluteUrl(publicPath(catalogue.slug));
+  const direct = absoluteUrl(`${publicPath(catalogue.slug)}?open=1`);
   const review = absoluteUrl(`${publicPath(catalogue.slug)}?rev=${catalogue.preview_token}`);
   const embedded = iframeCode(catalogue.slug);
 
@@ -42,6 +43,7 @@ export default function ShareBox({ catalogue, onCopied }) {
       </div>
 
       <Field label="Lien public du catalogue" value={link} onCopied={onCopied} />
+      <Field label="Lien direct (feuilletage immédiat, sans écran d'accueil)" value={direct} onCopied={onCopied} />
 
       <div>
         <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
