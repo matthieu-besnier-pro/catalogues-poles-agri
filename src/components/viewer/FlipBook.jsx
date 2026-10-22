@@ -1,6 +1,8 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import PageFace from '@/components/viewer/PageFace';
+
+const NARROW_BREAKPOINT = 900;
 
 // Real page-curl book, via react-pageflip (the library behind most
 // Calaméo/Issuu-style catalogue viewers) instead of a hand-built animation —
@@ -9,6 +11,16 @@ import PageFace from '@/components/viewer/PageFace';
 // kept re-covering by hand.
 const FlipBook = forwardRef(function FlipBook({ pages, startPage = 1, onFlip, onLink, crop, zoom = 1, containerRef }, ref) {
   const bookRef = useRef(null);
+  // Decide single- vs double-page ourselves rather than trust the library's
+  // own container-based heuristic (it was defaulting to single-page even on
+  // wide desktop viewports).
+  const [isNarrow, setIsNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth < NARROW_BREAKPOINT);
+
+  useEffect(() => {
+    const onResize = () => setIsNarrow(window.innerWidth < NARROW_BREAKPOINT);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useImperativeHandle(
     ref,
@@ -39,6 +51,7 @@ const FlipBook = forwardRef(function FlipBook({ pages, startPage = 1, onFlip, on
           minHeight={280}
           maxHeight={2000}
           showCover
+          usePortrait={isNarrow}
           mobileScrollSupport={false}
           drawShadow
           flippingTime={420}
@@ -48,7 +61,7 @@ const FlipBook = forwardRef(function FlipBook({ pages, startPage = 1, onFlip, on
         >
           {pages.map((page, index) => (
             <div key={page.id || page.page_number} className="page bg-white" data-density={index === 0 || index === last ? 'hard' : 'soft'}>
-              <PageFace page={page} crop={crop} width="100%" height="100%" onLink={onLink} />
+              <PageFace page={page} crop={crop} onLink={onLink} eager={index < 2} />
             </div>
           ))}
         </HTMLFlipBook>
