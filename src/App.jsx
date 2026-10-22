@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import RequireAdmin from '@/components/RequireAdmin';
 import ScrollToTop from './components/ScrollToTop';
 // Add page imports here
 import StudioLayout from '@/components/studio/StudioLayout';
@@ -43,7 +44,13 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      <Route element={<StudioLayout />}>
+      <Route
+        element={
+          <RequireAdmin>
+            <StudioLayout />
+          </RequireAdmin>
+        }
+      >
         <Route path="/" element={<StudioHome />} />
         <Route path="/nouveau" element={<ImportWizard />} />
         <Route path="/nouveau/masse" element={<BulkImportWizard />} />
