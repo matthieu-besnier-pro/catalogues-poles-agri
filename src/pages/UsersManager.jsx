@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ShieldCheck, UserRound } from 'lucide-react';
+import { RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -11,12 +12,20 @@ export default function UsersManager() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [savingId, setSavingId] = useState('');
 
   const load = async () => {
-    const result = await base44.entities.User.list('-created_date');
-    setUsers(result || []);
-    setLoading(false);
+    setLoading(true);
+    setLoadError('');
+    try {
+      const result = await base44.entities.User.list('-created_date');
+      setUsers(Array.isArray(result) ? result : result?.items || []);
+    } catch (error) {
+      setLoadError(error?.message || 'Une erreur inconnue est survenue.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -58,6 +67,18 @@ export default function UsersManager() {
             {[0, 1, 2].map((key) => (
               <div key={key} className="h-12 animate-pulse rounded-lg bg-secondary/60" />
             ))}
+          </div>
+        ) : loadError ? (
+          <div className="px-8 py-16 text-center">
+            <p className="font-display text-xl">Impossible de charger les utilisateurs</p>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              {loadError} Si cet onglet vient d’être ajouté, vérifiez que l’application a bien été publiée depuis le dashboard
+              Base44 : les règles de sécurité d’une entité ne s’appliquent qu’après publication.
+            </p>
+            <Button variant="outline" className="mt-5 rounded-full" onClick={load}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Réessayer
+            </Button>
           </div>
         ) : users.length ? (
           <ul className="divide-y divide-border">
