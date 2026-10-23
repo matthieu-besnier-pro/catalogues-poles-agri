@@ -19,8 +19,9 @@ export default function UsersManager() {
     setLoading(true);
     setLoadError('');
     try {
-      const result = await base44.entities.User.list('-created_date');
-      setUsers(Array.isArray(result) ? result : result?.items || []);
+      const result = await base44.functions.invoke('listUsers', {});
+      if (result?.error) throw new Error(result.error);
+      setUsers(result?.items || []);
     } catch (error) {
       setLoadError(error?.message || 'Une erreur inconnue est survenue.');
     } finally {
@@ -40,7 +41,8 @@ export default function UsersManager() {
     }
     setSavingId(targetUser.id);
     try {
-      await base44.entities.User.update(targetUser.id, { role });
+      const result = await base44.functions.invoke('updateUserRole', { userId: targetUser.id, role });
+      if (result?.error) throw new Error(result.error);
       setUsers((current) => current.map((item) => (item.id === targetUser.id ? { ...item, role } : item)));
       toast({ title: 'Rôle mis à jour' });
     } catch (error) {
@@ -73,7 +75,7 @@ export default function UsersManager() {
             <p className="font-display text-xl">Impossible de charger les utilisateurs</p>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
               {loadError} Si cet onglet vient d’être ajouté, vérifiez que l’application a bien été publiée depuis le dashboard
-              Base44 : les règles de sécurité d’une entité ne s’appliquent qu’après publication.
+              Base44 : les fonctions backend ne sont disponibles qu’après publication.
             </p>
             <Button variant="outline" className="mt-5 rounded-full" onClick={load}>
               <RefreshCw className="mr-2 h-4 w-4" />
