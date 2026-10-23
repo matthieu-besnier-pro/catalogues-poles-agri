@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import CatalogueOptions from '@/components/studio/CatalogueOptions';
 import ConversionProgress from '@/components/studio/ConversionProgress';
-import CropEditor from '@/components/studio/CropEditor';
 import PdfDropzone from '@/components/studio/PdfDropzone';
 import ShareBox from '@/components/studio/ShareBox';
 import { useToast } from '@/components/ui/use-toast';
@@ -18,7 +17,7 @@ import { openPdfFile } from '@/lib/pdfEngine';
 import { NO_CROP, createCatalogueWithPdf } from '@/lib/publishCatalogue';
 import { cn } from '@/lib/utils';
 
-const STEPS = ['Fichier PDF', 'Informations', 'Diffusion', 'Rognage', 'Publication'];
+const STEPS = ['Fichier PDF', 'Informations', 'Diffusion', 'Publication'];
 
 const LANGUAGES = [
   { value: 'fr', label: 'Français' },
@@ -42,7 +41,6 @@ export default function ImportWizard() {
   const [poles, setPoles] = useState([]);
   const [meta, setMeta] = useState({ title: '', description: '', language: 'fr', poleId: '' });
   const [options, setOptions] = useState({ download_enabled: false, search_enabled: true, no_index: false, password: '' });
-  const [crop, setCrop] = useState(NO_CROP);
   const [progress, setProgress] = useState({ percent: 0, stage: '' });
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -78,7 +76,7 @@ export default function ImportWizard() {
   const publish = async () => {
     setError('');
     setProgress({ percent: 0, stage: 'Préparation' });
-    setStep(4);
+    setStep(3);
     try {
       const pole = poles.find((item) => item.id === meta.poleId) || null;
       const created = await createCatalogueWithPdf({
@@ -90,7 +88,7 @@ export default function ImportWizard() {
           password_hash: options.password ? await sha256(options.password) : '',
           theme_color: pole?.color || '',
         },
-        crop,
+        crop: NO_CROP,
         onProgress: setProgress,
       });
       setResult(created);
@@ -212,9 +210,7 @@ export default function ImportWizard() {
           </div>
         ) : null}
 
-        {step === 3 ? <CropEditor doc={doc} crop={crop} onChange={setCrop} /> : null}
-
-        {step === 4 ? (
+        {step === 3 ? (
           result ? (
             <div className="space-y-6">
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-6">
@@ -245,26 +241,26 @@ export default function ImportWizard() {
       </div>
 
       <div className="mt-10 flex items-center justify-between">
-        <Button variant="ghost" onClick={() => setStep((current) => Math.max(0, current - 1))} disabled={step === 0 || step === 4}>
+        <Button variant="ghost" onClick={() => setStep((current) => Math.max(0, current - 1))} disabled={step === 0 || step === 3}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Retour
         </Button>
 
-        {step > 0 && step < 3 ? (
+        {step > 0 && step < 2 ? (
           <Button onClick={() => setStep(step + 1)} disabled={!canContinue} className="rounded-full px-6">
             Continuer
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         ) : null}
 
-        {step === 3 ? (
+        {step === 2 ? (
           <Button onClick={publish} className="rounded-full px-6">
             Convertir et publier
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         ) : null}
 
-        {step === 4 && !result ? (
+        {step === 3 && !result ? (
           <span className="text-xs text-muted-foreground">Conversion en cours</span>
         ) : null}
       </div>
