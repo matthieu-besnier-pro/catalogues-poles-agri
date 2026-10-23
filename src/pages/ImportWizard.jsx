@@ -13,6 +13,7 @@ import PdfDropzone from '@/components/studio/PdfDropzone';
 import ShareBox from '@/components/studio/ShareBox';
 import { useToast } from '@/components/ui/use-toast';
 import { sha256 } from '@/lib/format';
+import { takePendingImport } from '@/lib/pendingImport';
 import { openPdfFile } from '@/lib/pdfEngine';
 import { NO_CROP, createCatalogueWithPdf } from '@/lib/publishCatalogue';
 import { cn } from '@/lib/utils';
@@ -72,6 +73,12 @@ export default function ImportWizard() {
       setReading(false);
     }
   };
+
+  useEffect(() => {
+    const [dropped] = takePendingImport() || [];
+    if (dropped) handleFile(dropped);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const publish = async () => {
     setError('');

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import CatalogueOptions from '@/components/studio/CatalogueOptions';
 import { useToast } from '@/components/ui/use-toast';
 import { sha256 } from '@/lib/format';
+import { takePendingImport } from '@/lib/pendingImport';
 import { openPdfFile } from '@/lib/pdfEngine';
 import { NO_CROP, createCatalogueWithPdf } from '@/lib/publishCatalogue';
 import { cn } from '@/lib/utils';
@@ -79,6 +80,12 @@ export default function BulkImportWizard() {
       return [...current, ...added];
     });
   };
+
+  useEffect(() => {
+    const dropped = takePendingImport();
+    if (dropped?.length) addFiles(dropped);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const removeItem = (id) => setItems((current) => current.filter((item) => item.id !== id));
   const updateTitle = (id, title) => setItems((current) => current.map((item) => (item.id === id ? { ...item, title } : item)));

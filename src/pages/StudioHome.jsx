@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Download, Eye, Layers, Plus, Search, Sparkles, Users } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Download, Eye, FileUp, Layers, Plus, Search, Sparkles, Users } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import CatalogueCard from '@/components/studio/CatalogueCard';
 import StatCard from '@/components/studio/StatCard';
 import { useAuth } from '@/lib/AuthContext';
 import { escapeRegex, formatNumber, publicPath } from '@/lib/format';
+import { setPendingImport } from '@/lib/pendingImport';
 import { fetchStudioHome } from '@/lib/queries';
 import { typeCount } from '@/lib/stats';
 import { cn } from '@/lib/utils';
+
+const isPdfFile = (file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 
 const TABS = [
   { key: 'all', label: 'Tous' },
@@ -20,11 +23,42 @@ const TABS = [
 export default function StudioHome() {
   const { isAuthenticated, user } = useAuth();
   const isAdmin = isAuthenticated && user?.role === 'admin';
+  const navigate = useNavigate();
+  const dragCounter = useRef(0);
+  const [dragActive, setDragActive] = useState(false);
   const [status, setStatus] = useState('all');
   const [term, setTerm] = useState('');
   const [catalogues, setCatalogues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [kpi, setKpi] = useState(null);
+
+  const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+
+  const handleDragEnter = (event) => {
+    if (!isAdmin || !hasFiles(event)) return;
+    event.preventDefault();
+    dragCounter.current += 1;
+    setDragActive(true);
+  };
+  const handleDragOver = (event) => {
+    if (isAdmin && hasFiles(event)) event.preventDefault();
+  };
+  const handleDragLeave = (event) => {
+    if (!isAdmin || !hasFiles(event)) return;
+    event.preventDefault();
+    dragCounter.current = Math.max(0, dragCounter.current - 1);
+    if (dragCounter.current === 0) setDragActive(false);
+  };
+  const handleDrop = (event) => {
+    if (!isAdmin) return;
+    event.preventDefault();
+    dragCounter.current = 0;
+    setDragActive(false);
+    const files = Array.from(event.dataTransfer?.files || []).filter(isPdfFile);
+    if (!files.length) return;
+    setPendingImport(files);
+    navigate(files.length > 1 ? '/nouveau/masse' : '/nouveau');
+  };
 
   useEffect(() => {
     if (isAdmin) fetchStudioHome(30).then(setKpi);
@@ -53,7 +87,25 @@ export default function StudioHome() {
   }, [status, term, isAdmin]);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10 lg:px-12 lg:py-16">
+    <div
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="relative mx-auto max-w-6xl px-6 py-10 lg:px-12 lg:py-16"
+    >
+      {dragActive ? (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-primary/90 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-white/50 px-16 py-12 text-center text-primary-foreground">
+            <FileUp className="h-10 w-10" />
+            <p className="font-display text-2xl">Déposez vos PDF ici</p>
+            <p className="text-sm text-primary-foreground/70">
+              Un seul fichier ouvre l’import simple, plusieurs fichiers ouvrent l’import en masse.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
