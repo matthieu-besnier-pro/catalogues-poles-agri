@@ -13,5 +13,9 @@
     "role"
   ],
   "name": "User",
-  "type": "object"
+  "type": "object",
+  "rls": {
+    "read": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } }
+  }
 }
