@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, Library, Plus, Sprout } from 'lucide-react';
+import { BarChart3, Library, LogIn, LogOut, Plus, Sprout } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -10,8 +10,14 @@ const NAV = [
   { to: '/poles', label: 'Pôles', icon: Sprout, adminOnly: true },
 ];
 
+const navItemClass = ({ isActive }) =>
+  cn(
+    'flex items-center gap-3 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm transition-colors duration-200',
+    isActive ? 'bg-white/15 text-white' : 'text-white/65 hover:bg-white/8 hover:text-white',
+  );
+
 export default function StudioLayout() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const isAdmin = isAuthenticated && user?.role === 'admin';
   const items = NAV.filter((item) => !item.adminOnly || isAdmin);
 
@@ -24,21 +30,22 @@ export default function StudioLayout() {
         </div>
         <nav className="hide-scrollbar flex gap-1 overflow-x-auto px-3 pb-4 lg:flex-col lg:overflow-visible">
           {items.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm transition-colors duration-200',
-                  isActive ? 'bg-white/15 text-white' : 'text-white/65 hover:bg-white/8 hover:text-white',
-                )
-              }
-            >
+            <NavLink key={to} to={to} end={end} className={navItemClass}>
               <Icon className="h-4 w-4" />
               {label}
             </NavLink>
           ))}
+          {isAuthenticated ? (
+            <button type="button" onClick={() => logout()} className={navItemClass({ isActive: false })}>
+              <LogOut className="h-4 w-4" />
+              Déconnexion
+            </button>
+          ) : (
+            <NavLink to="/login" className={navItemClass}>
+              <LogIn className="h-4 w-4" />
+              Connexion
+            </NavLink>
+          )}
         </nav>
         <div className="mt-auto hidden border-t border-white/10 px-6 py-6 lg:block">
           <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">Espace de publication</p>
