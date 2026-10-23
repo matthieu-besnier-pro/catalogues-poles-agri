@@ -30,7 +30,7 @@ export default function CatalogueDetail() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('diffusion');
+  const [activeTab, setActiveTab] = useState('versions');
   const [cropDoc, setCropDoc] = useState(null);
   const [cropFile, setCropFile] = useState(null);
   const [cropValue, setCropValue] = useState(NO_CROP);
@@ -243,18 +243,17 @@ export default function CatalogueDetail() {
         </div>
       </header>
 
-      <Tabs defaultValue="diffusion" onValueChange={setActiveTab} className="mt-10">
-        <TabsList className="flex flex-wrap">
-          <TabsTrigger value="diffusion">Diffusion</TabsTrigger>
-          <TabsTrigger value="apercu">Aperçu</TabsTrigger>
-          <TabsTrigger value="recadrage">Recadrage</TabsTrigger>
-          <TabsTrigger value="reglages">Réglages</TabsTrigger>
-          <TabsTrigger value="versions">Versions</TabsTrigger>
-          <TabsTrigger value="statistiques">Statistiques</TabsTrigger>
-        </TabsList>
+      <div className="mt-10 space-y-10">
+        <section>
+          <p className="font-display text-lg">Réglages</p>
+          <div className="mt-5">
+            <CatalogueSettingsTab catalogue={catalogue} onSaved={load} onDelete={remove} />
+          </div>
+        </section>
 
-        <TabsContent value="diffusion" className="mt-8">
-          <div className="grid gap-6 lg:grid-cols-2">
+        <section>
+          <p className="font-display text-lg">Diffusion</p>
+          <div className="mt-5 grid gap-6 lg:grid-cols-2">
             <ShareBox catalogue={catalogue} onCopied={() => toast({ title: 'Lien copié' })} />
             <div className="rounded-xl border border-border bg-card p-5">
               <p className="font-display text-lg">État de la diffusion</p>
@@ -282,11 +281,19 @@ export default function CatalogueDetail() {
               </ul>
             </div>
           </div>
-        </TabsContent>
+        </section>
 
-        <TabsContent value="apercu" className="mt-8">
+        <section>
           <CataloguePreviewTab catalogue={catalogue} pages={pages} />
-        </TabsContent>
+        </section>
+      </div>
+
+      <Tabs defaultValue="versions" onValueChange={setActiveTab} className="mt-12">
+        <TabsList className="flex flex-wrap">
+          <TabsTrigger value="versions">Versions</TabsTrigger>
+          <TabsTrigger value="recadrage">Recadrage</TabsTrigger>
+          <TabsTrigger value="statistiques">Statistiques</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="recadrage" className="mt-8">
           {cropLoading ? (
@@ -321,10 +328,6 @@ export default function CatalogueDetail() {
               Le PDF d’origine n’est pas disponible pour ce catalogue.
             </p>
           )}
-        </TabsContent>
-
-        <TabsContent value="reglages" className="mt-8">
-          <CatalogueSettingsTab catalogue={catalogue} onSaved={load} onDelete={remove} />
         </TabsContent>
 
         <TabsContent value="versions" className="mt-8 space-y-6">
