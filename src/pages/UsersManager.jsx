@@ -14,8 +14,8 @@ export default function UsersManager() {
   const [savingId, setSavingId] = useState('');
 
   const load = async () => {
-    const result = await base44.entities.User.filter({}, { sort: '-created_date', limit: 200 });
-    setUsers(result.items || []);
+    const result = await base44.entities.User.list('-created_date');
+    setUsers(result || []);
     setLoading(false);
   };
 
