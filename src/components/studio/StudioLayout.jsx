@@ -27,7 +27,7 @@ export default function StudioLayout() {
       <aside className="flex flex-col bg-primary text-primary-foreground lg:w-[272px] lg:shrink-0">
         <div className="flex items-baseline gap-3 px-6 pb-5 pt-7 lg:block lg:pt-10">
           <p className="font-display text-2xl leading-none tracking-tight">Catalogues</p>
-          <p className="text-[11px] uppercase tracking-[0.32em] text-accent lg:mt-2.5">Pôles Agri</p>
+          <p className="text-[11px] uppercase tracking-[0.32em] text-accent lg:mt-2.5">Pôle Agri</p>
         </div>
         <nav className="hide-scrollbar flex gap-1 overflow-x-auto px-3 pb-4 lg:flex-col lg:overflow-visible">
           {items.map(({ to, label, icon: Icon, end }) => (

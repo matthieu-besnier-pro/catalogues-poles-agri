@@ -32,11 +32,13 @@ const LANGUAGES = [
 
 export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
   const { toast } = useToast();
+  const [poles, setPoles] = useState([]);
   const [form, setForm] = useState({
     title: catalogue.title,
     description: catalogue.description || '',
     language: catalogue.language || 'fr',
     theme_color: catalogue.theme_color || '#1C4A38',
+    pole_id: catalogue.pole_id || '',
   });
   const [options, setOptions] = useState({
     download_enabled: !!catalogue.download_enabled,
@@ -47,21 +49,30 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    base44.entities.Pole.filter({}, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
+  }, []);
+
+  useEffect(() => {
     setForm({
       title: catalogue.title,
       description: catalogue.description || '',
       language: catalogue.language || 'fr',
       theme_color: catalogue.theme_color || '#1C4A38',
+      pole_id: catalogue.pole_id || '',
     });
   }, [catalogue]);
 
   const save = async () => {
     setSaving(true);
+    const pole = poles.find((item) => item.id === form.pole_id) || null;
     const payload = {
       title: form.title,
       description: form.description,
       language: form.language,
       theme_color: form.theme_color,
+      pole_id: pole?.id || '',
+      pole_name: pole?.name || '',
+      pole_slug: pole?.slug || '',
       download_enabled: options.download_enabled,
       search_enabled: options.search_enabled,
       no_index: options.no_index,
@@ -98,6 +109,21 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
                 onChange={(event) => setForm({ ...form, description: event.target.value })}
                 className="mt-2"
               />
+            </div>
+            <div>
+              <Label>Filiale</Label>
+              <Select value={form.pole_id} onValueChange={(value) => setForm({ ...form, pole_id: value })}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Choisir une filiale" />
+                </SelectTrigger>
+                <SelectContent>
+                  {poles.map((pole) => (
+                    <SelectItem key={pole.id} value={pole.id}>
+                      {pole.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-wrap gap-4">
               <div>

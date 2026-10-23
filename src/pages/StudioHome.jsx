@@ -109,7 +109,7 @@ export default function StudioHome() {
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-            {isAdmin ? 'Espace de publication' : 'Pôles Agri'}
+            {isAdmin ? 'Espace de publication' : 'Pôle Agri'}
           </p>
           <h1 className="mt-3 font-display text-4xl leading-[1.05] lg:text-5xl">
             {isAdmin ? 'Vos catalogues' : 'Nos catalogues'}
