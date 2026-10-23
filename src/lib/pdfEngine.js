@@ -65,7 +65,12 @@ export async function renderPageToCanvas(doc, pageNumber, { targetWidth = 1500, 
   const context = full.getContext('2d');
   context.fillStyle = '#ffffff';
   context.fillRect(0, 0, full.width, full.height);
-  await page.render({ canvasContext: context, viewport }).promise;
+  // intent: 'print' avoids pdf.js's default display-mode pacing, which steps
+  // through long pages via requestAnimationFrame — paused by the browser as
+  // soon as the window loses focus or the tab is hidden, stalling the render
+  // indefinitely. We rasterize to a detached canvas, never to screen, so the
+  // print path (no rAF pacing) is safe here.
+  await page.render({ canvasContext: context, viewport, intent: 'print' }).promise;
 
   const box = croppedBox(full.width, full.height, crop);
   if (box.x === 0 && box.y === 0 && box.w === full.width && box.h === full.height) {
