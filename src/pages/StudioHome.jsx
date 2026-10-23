@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Download, Eye, FileUp, Layers, Plus, Search, Sparkles, Users } from 'lucide-react';
+import { Download, Eye, FileUp, Layers, LayoutGrid, Plus, Rows3, Search, Sparkles, Users } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import CatalogueCard from '@/components/studio/CatalogueCard';
+import CatalogueTable from '@/components/studio/CatalogueTable';
 import StatCard from '@/components/studio/StatCard';
 import { useAuth } from '@/lib/AuthContext';
 import { escapeRegex, formatNumber, publicPath } from '@/lib/format';
@@ -31,6 +32,8 @@ export default function StudioHome() {
   const [catalogues, setCatalogues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [kpi, setKpi] = useState(null);
+  const [view, setView] = useState('grid');
+  const [poles, setPoles] = useState([]);
 
   const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
 
@@ -65,6 +68,10 @@ export default function StudioHome() {
   }, [isAdmin]);
 
   useEffect(() => {
+    if (isAdmin) base44.entities.Pole.filter({}, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
+  }, [isAdmin]);
+
+  useEffect(() => {
     let active = true;
     const handle = window.setTimeout(async () => {
       setLoading(true);
@@ -75,7 +82,7 @@ export default function StudioHome() {
       else query.status = { $ne: 'archived' };
       const cleaned = term.trim();
       if (cleaned) query.title = { $regex: escapeRegex(cleaned), $options: 'i' };
-      const result = await base44.entities.Catalogue.filter(query, { sort: '-created_date', limit: 60 });
+      const result = await base44.entities.Catalogue.filter(query, { sort: '-created_date', limit: isAdmin ? 500 : 60 });
       if (!active) return;
       setCatalogues(result.items || []);
       setLoading(false);
@@ -85,6 +92,10 @@ export default function StudioHome() {
       window.clearTimeout(handle);
     };
   }, [status, term, isAdmin]);
+
+  const handleUpdated = (id, patchedCatalogue) => {
+    setCatalogues((current) => current.map((item) => (item.id === id ? { ...item, ...patchedCatalogue } : item)));
+  };
 
   return (
     <div
@@ -177,6 +188,34 @@ export default function StudioHome() {
                 ))}
               </div>
             ) : null}
+            {isAdmin ? (
+              <div className="flex gap-1 rounded-full bg-secondary p-1">
+                <button
+                  type="button"
+                  onClick={() => setView('grid')}
+                  aria-label="Vue en grille"
+                  title="Vue en grille"
+                  className={cn(
+                    'flex h-7 w-7 items-center justify-center rounded-full transition-colors',
+                    view === 'grid' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('list')}
+                  aria-label="Vue en liste"
+                  title="Vue en liste"
+                  className={cn(
+                    'flex h-7 w-7 items-center justify-center rounded-full transition-colors',
+                    view === 'list' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <Rows3 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -191,16 +230,22 @@ export default function StudioHome() {
             ))}
           </div>
         ) : catalogues.length ? (
-          <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-            {catalogues.map((catalogue) => (
-              <CatalogueCard
-                key={catalogue.id}
-                catalogue={catalogue}
-                viewCount={isAdmin ? kpi?.views?.[catalogue.id] || 0 : undefined}
-                to={isAdmin ? undefined : publicPath(catalogue.slug)}
-              />
-            ))}
-          </div>
+          isAdmin && view === 'list' ? (
+            <div className="mt-8">
+              <CatalogueTable catalogues={catalogues} poles={poles} onUpdated={handleUpdated} />
+            </div>
+          ) : (
+            <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+              {catalogues.map((catalogue) => (
+                <CatalogueCard
+                  key={catalogue.id}
+                  catalogue={catalogue}
+                  viewCount={isAdmin ? kpi?.views?.[catalogue.id] || 0 : undefined}
+                  to={isAdmin ? undefined : publicPath(catalogue.slug)}
+                />
+              ))}
+            </div>
+          )
         ) : (
           <div className="mt-8 rounded-2xl border border-dashed border-border bg-card/60 px-8 py-16 text-center">
             <h3 className="font-display text-2xl">Aucun catalogue pour l’instant</h3>
