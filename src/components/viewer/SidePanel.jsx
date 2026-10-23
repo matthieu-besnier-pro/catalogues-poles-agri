@@ -81,7 +81,7 @@ export default function SidePanel({ panel, onPanel, catalogue, pages, onClose, o
                     className="group text-left"
                   >
                     <span className="block overflow-hidden rounded-md border border-border bg-white shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5">
-                      <Image src={page.thumb_url} alt={`Page ${page.page_number}`} className="h-full w-full" loading="lazy" />
+                      <Image src={page.image_url} alt={`Page ${page.page_number}`} className="h-full w-full" loading="lazy" />
                     </span>
                     <span className="mt-1.5 block text-[10px] tabular-nums text-muted-foreground">{page.page_number}</span>
                   </button>

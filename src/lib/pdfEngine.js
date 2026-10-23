@@ -85,18 +85,6 @@ export async function renderPageToCanvas(doc, pageNumber, { targetWidth = 1500, 
   return { canvas: cropped, width: cropped.width, height: cropped.height };
 }
 
-export function renderThumb(sourceCanvas, width = 200) {
-  const ratio = sourceCanvas.height / sourceCanvas.width;
-  const thumb = document.createElement('canvas');
-  thumb.width = width;
-  thumb.height = Math.max(1, Math.round(width * ratio));
-  const context = thumb.getContext('2d');
-  context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, thumb.width, thumb.height);
-  context.drawImage(sourceCanvas, 0, 0, thumb.width, thumb.height);
-  return thumb;
-}
-
 export function canvasToBlob(canvas, type = 'image/webp', quality = 0.82) {
   return new Promise((resolve) => {
     canvas.toBlob((blob) => {

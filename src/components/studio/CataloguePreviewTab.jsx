@@ -46,7 +46,7 @@ export default function CataloguePreviewTab({ catalogue, pages }) {
                 title={`Ouvrir la page ${page.page_number} dans la visionneuse`}
               >
                 <Image
-                  src={page.thumb_url}
+                  src={page.image_url}
                   alt={`Page ${page.page_number}`}
                   className="h-full w-full transition-transform duration-300 group-hover:scale-[1.04]"
                 />

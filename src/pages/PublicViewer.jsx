@@ -73,7 +73,7 @@ export default function PublicViewer({ embedded = false }) {
       for (let step = 0; step < 5; step += 1) {
         const result = await base44.entities.CataloguePage.filter(
           { version_id: catalogue.active_version_id },
-          { sort: 'page_number', limit: 500, fields: ['page_number', 'image_url', 'thumb_url', 'width', 'height', 'links'], cursor },
+          { sort: 'page_number', limit: 500, fields: ['page_number', 'image_url', 'width', 'height', 'links'], cursor },
         );
         collected.push(...result.items);
         if (!result.has_more) break;

@@ -1,16 +1,8 @@
 import { base44 } from '@/api/base44Client';
-import {
-  canvasToBlob,
-  extractOutline,
-  extractPageLinks,
-  extractPageText,
-  renderPageToCanvas,
-  renderThumb,
-} from '@/lib/pdfEngine';
+import { canvasToBlob, extractOutline, extractPageLinks, extractPageText, renderPageToCanvas } from '@/lib/pdfEngine';
 import { uniqueSlug } from '@/lib/format';
 
 const SCREEN_WIDTH = 1500;
-const THUMB_WIDTH = 200;
 const PAGE_BATCH = 8;
 const PAGE_CONCURRENCY = 3;
 
@@ -50,10 +42,12 @@ async function renderAndStore({ doc, file, catalogueId, versionId, crop, onProgr
 
   const processPage = async (number) => {
     const { canvas, width, height } = await renderPageToCanvas(doc, number, { targetWidth: SCREEN_WIDTH, crop });
-    const [screen, thumb] = await Promise.all([
-      upload(canvas, `page-${number}.webp`, 'image/webp', 0.82),
-      upload(renderThumb(canvas, THUMB_WIDTH), `thumb-${number}.jpg`, 'image/jpeg', 0.78),
-    ]);
+    // One upload per page, not two: every consumer of the page image already
+    // renders it through the <Image> component, which resizes Wix-hosted
+    // images to their container on the fly via the CDN — a separate
+    // pre-shrunk thumbnail file was a second UploadPublicFile call (and its
+    // credit cost) for a size the CDN already serves from the original.
+    const screen = await upload(canvas, `page-${number}.webp`, 'image/webp', 0.82);
     canvas.width = 0;
     canvas.height = 0;
     const [text, links] = await Promise.all([extractPageText(doc, number), extractPageLinks(doc, number)]);
@@ -65,7 +59,6 @@ async function renderAndStore({ doc, file, catalogueId, versionId, crop, onProgr
       version_id: versionId,
       page_number: number,
       image_url: screen.file_url,
-      thumb_url: thumb.file_url,
       width,
       height,
       text,
