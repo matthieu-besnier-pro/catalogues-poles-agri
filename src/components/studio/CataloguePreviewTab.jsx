@@ -5,6 +5,8 @@ import { absoluteUrl, publicPath } from '@/lib/format';
 
 export default function CataloguePreviewTab({ catalogue, pages }) {
   const link = absoluteUrl(publicPath(catalogue.slug));
+  const reviewSuffix = catalogue.status === 'published' ? '' : `&rev=${catalogue.preview_token}`;
+  const pageLink = (pageNumber) => publicPath(catalogue.slug, `?open=1&p=${pageNumber}${reviewSuffix}`);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[300px_1fr]">
@@ -35,10 +37,21 @@ export default function CataloguePreviewTab({ catalogue, pages }) {
         {pages.length ? (
           <div className="mt-6 grid grid-cols-4 gap-3 sm:grid-cols-6">
             {pages.map((page) => (
-              <div key={page.id || page.page_number} className="overflow-hidden rounded border border-border bg-white">
-                <Image src={page.thumb_url} alt={`Page ${page.page_number}`} className="h-full w-full" />
+              <a
+                key={page.id || page.page_number}
+                href={pageLink(page.page_number)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group overflow-hidden rounded border border-border bg-white transition-colors hover:border-primary"
+                title={`Ouvrir la page ${page.page_number} dans la visionneuse`}
+              >
+                <Image
+                  src={page.thumb_url}
+                  alt={`Page ${page.page_number}`}
+                  className="h-full w-full transition-transform duration-300 group-hover:scale-[1.04]"
+                />
                 <p className="px-1.5 py-1 text-[10px] tabular-nums text-muted-foreground">{page.page_number}</p>
-              </div>
+              </a>
             ))}
           </div>
         ) : (
