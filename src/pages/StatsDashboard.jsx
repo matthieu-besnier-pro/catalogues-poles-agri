@@ -3,6 +3,7 @@ import { Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Breakdown from '@/components/studio/Breakdown';
 import PeriodSelect from '@/components/studio/PeriodSelect';
+import StatsMethodology from '@/components/studio/StatsMethodology';
 import StatsSummary from '@/components/studio/StatsSummary';
 import TopCataloguesList from '@/components/studio/TopCataloguesList';
 import TrendChart from '@/components/studio/TrendChart';
@@ -132,6 +133,8 @@ export default function StatsDashboard() {
             <Breakdown title="Appareils" rows={overview?.devices || []} labels={DEVICE_LABELS} />
           </div>
         </div>
+
+        <StatsMethodology />
       </div>
     </div>
   );

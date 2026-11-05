@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
 import Breakdown from '@/components/studio/Breakdown';
 import PeriodSelect from '@/components/studio/PeriodSelect';
+import StatsMethodology from '@/components/studio/StatsMethodology';
 import StatsSummary from '@/components/studio/StatsSummary';
 import TopPagesList from '@/components/studio/TopPagesList';
 import TrendChart from '@/components/studio/TrendChart';
@@ -84,6 +85,8 @@ export default function CatalogueStatsTab({ catalogueId }) {
           <Breakdown title="Appareils" rows={overview?.devices || []} labels={DEVICE_LABELS} />
         </div>
       </div>
+
+      <StatsMethodology />
     </div>
   );
 }
