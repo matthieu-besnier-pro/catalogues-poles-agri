@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Breakdown from '@/components/studio/Breakdown';
 import PeriodSelect from '@/components/studio/PeriodSelect';
 import StatsSummary from '@/components/studio/StatsSummary';
-import TopPagesList from '@/components/studio/TopPagesList';
+import TopCataloguesList from '@/components/studio/TopCataloguesList';
 import TrendChart from '@/components/studio/TrendChart';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,6 +23,7 @@ const TYPE_LABELS = {
 
 export default function StatsDashboard() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [days, setDays] = useState(30);
   const [poleId, setPoleId] = useState('all');
   const [poles, setPoles] = useState([]);
@@ -116,8 +118,12 @@ export default function StatsDashboard() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-6">
-            <p className="font-display text-lg">Pages les plus lues</p>
-            <TopPagesList rows={overview?.topPages || []} catalogueTitles={catalogueTitles} />
+            <p className="font-display text-lg">Catalogues les plus consultés</p>
+            <TopCataloguesList
+              rows={overview?.byCatalogue || []}
+              catalogueTitles={catalogueTitles}
+              onSelect={(catalogueId) => navigate(`/catalogue/${catalogueId}`)}
+            />
           </div>
           <div className="rounded-xl border border-border bg-card p-6">
             <Breakdown title="Origine du trafic" rows={overview?.sources || []} labels={SOURCE_LABELS} />

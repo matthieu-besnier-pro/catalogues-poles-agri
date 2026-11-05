@@ -38,15 +38,28 @@ export async function fetchOverview({ catalogueId, poleId, days }) {
   const key = `overview:${catalogueId || ''}:${poleId || ''}:${days}`;
   return cached(key, async () => {
     const query = buildQuery({ catalogueId, poleId, days });
-    const [byType, readers, pages, sources, devices, trend] = await Promise.all([
+    // Scoped to one catalogue: ranking its own pages is useful (shows where
+    // readers drop off past the cover). Across every catalogue at once, that
+    // same ranking just surfaces "page 1" of whichever catalogue has the most
+    // readers, every time — ranking catalogues against each other instead is
+    // the question actually being asked there.
+    const thirdSlot = catalogueId
+      ? base44.entities.CatalogueEvent.aggregate({
+          query: { ...query, type: 'page' },
+          groupBy: 'page_number',
+          sort: '-count',
+          limit: 12,
+        })
+      : base44.entities.CatalogueEvent.aggregate({
+          query: { ...query, type: 'view' },
+          groupBy: 'catalogue_id',
+          sort: '-count',
+          limit: 12,
+        });
+    const [byType, readers, thirdResult, sources, devices, trend] = await Promise.all([
       base44.entities.CatalogueEvent.aggregate({ query, groupBy: 'type' }),
       base44.entities.CatalogueEvent.aggregate({ query, countDistinct: 'visitor_id' }),
-      base44.entities.CatalogueEvent.aggregate({
-        query: { ...query, type: 'page' },
-        groupBy: ['catalogue_id', 'page_number'],
-        sort: '-count',
-        limit: 12,
-      }),
+      thirdSlot,
       base44.entities.CatalogueEvent.aggregate({ query: { ...query, type: 'view' }, groupBy: 'source' }),
       base44.entities.CatalogueEvent.aggregate({ query: { ...query, type: 'view' }, groupBy: 'device' }),
       base44.entities.CatalogueEvent.aggregate({
@@ -57,7 +70,8 @@ export async function fetchOverview({ catalogueId, poleId, days }) {
     return {
       byType: byType.rows || [],
       readers: uniqueReaders(readers.rows),
-      topPages: pages.rows || [],
+      topPages: catalogueId ? thirdResult.rows || [] : [],
+      byCatalogue: catalogueId ? [] : thirdResult.rows || [],
       sources: (sources.rows || []).sort((a, b) => b.count - a.count),
       devices: (devices.rows || []).sort((a, b) => b.count - a.count),
       trend: trendRows(trend.rows),
