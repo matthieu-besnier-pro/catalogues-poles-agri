@@ -1,4 +1,5 @@
 import { base44 } from '@/api/base44Client';
+import { cached } from '@/lib/statsCache';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -34,43 +35,48 @@ export function trendRows(rows) {
 }
 
 export async function fetchOverview({ catalogueId, poleId, days }) {
-  const query = buildQuery({ catalogueId, poleId, days });
-  const [byType, readers, pages, sources, devices, trend] = await Promise.all([
-    base44.entities.CatalogueEvent.aggregate({ query, groupBy: 'type' }),
-    base44.entities.CatalogueEvent.aggregate({ query, countDistinct: 'visitor_id' }),
-    base44.entities.CatalogueEvent.aggregate({
-      query: { ...query, type: 'page' },
-      groupBy: 'page_number',
-      sort: '-count',
-      limit: 12,
-    }),
-    base44.entities.CatalogueEvent.aggregate({ query: { ...query, type: 'view' }, groupBy: 'source' }),
-    base44.entities.CatalogueEvent.aggregate({ query: { ...query, type: 'view' }, groupBy: 'device' }),
-    base44.entities.CatalogueEvent.aggregate({
-      query: { ...query, type: 'view' },
-      dateBucket: { field: 'created_date', unit: 'day' },
-    }),
-  ]);
-  return {
-    byType: byType.rows || [],
-    readers: uniqueReaders(readers.rows),
-    topPages: pages.rows || [],
-    sources: (sources.rows || []).sort((a, b) => b.count - a.count),
-    devices: (devices.rows || []).sort((a, b) => b.count - a.count),
-    trend: trendRows(trend.rows),
-  };
+  const key = `overview:${catalogueId || ''}:${poleId || ''}:${days}`;
+  return cached(key, async () => {
+    const query = buildQuery({ catalogueId, poleId, days });
+    const [byType, readers, pages, sources, devices, trend] = await Promise.all([
+      base44.entities.CatalogueEvent.aggregate({ query, groupBy: 'type' }),
+      base44.entities.CatalogueEvent.aggregate({ query, countDistinct: 'visitor_id' }),
+      base44.entities.CatalogueEvent.aggregate({
+        query: { ...query, type: 'page' },
+        groupBy: 'page_number',
+        sort: '-count',
+        limit: 12,
+      }),
+      base44.entities.CatalogueEvent.aggregate({ query: { ...query, type: 'view' }, groupBy: 'source' }),
+      base44.entities.CatalogueEvent.aggregate({ query: { ...query, type: 'view' }, groupBy: 'device' }),
+      base44.entities.CatalogueEvent.aggregate({
+        query: { ...query, type: 'view' },
+        dateBucket: { field: 'created_date', unit: 'day' },
+      }),
+    ]);
+    return {
+      byType: byType.rows || [],
+      readers: uniqueReaders(readers.rows),
+      topPages: pages.rows || [],
+      sources: (sources.rows || []).sort((a, b) => b.count - a.count),
+      devices: (devices.rows || []).sort((a, b) => b.count - a.count),
+      trend: trendRows(trend.rows),
+    };
+  });
 }
 
 export async function fetchCatalogueViews(days = 30) {
-  const result = await base44.entities.CatalogueEvent.aggregate({
-    query: { ...periodQuery(days), type: 'view' },
-    groupBy: 'catalogue_id',
+  return cached(`views:${days}`, async () => {
+    const result = await base44.entities.CatalogueEvent.aggregate({
+      query: { ...periodQuery(days), type: 'view' },
+      groupBy: 'catalogue_id',
+    });
+    const map = {};
+    (result.rows || []).forEach((row) => {
+      map[row.catalogue_id] = row.count || 0;
+    });
+    return map;
   });
-  const map = {};
-  (result.rows || []).forEach((row) => {
-    map[row.catalogue_id] = row.count || 0;
-  });
-  return map;
 }
 
 export async function exportEvents({ catalogueId, poleId, days }) {
