@@ -25,11 +25,19 @@ export default function StatsDashboard() {
   const [days, setDays] = useState(30);
   const [poleId, setPoleId] = useState('all');
   const [poles, setPoles] = useState([]);
+  const [catalogueTitles, setCatalogueTitles] = useState({});
   const [overview, setOverview] = useState(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     base44.entities.Pole.filter({}, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
+    base44.entities.Catalogue.filter({}, { fields: ['id', 'title'], limit: 500 }).then((page) => {
+      const map = {};
+      (page.items || []).forEach((item) => {
+        map[item.id] = item.title;
+      });
+      setCatalogueTitles(map);
+    });
   }, []);
 
   useEffect(() => {
@@ -51,7 +59,7 @@ export default function StatsDashboard() {
         rows.map((row) => ({
           Date: formatDateTime(row.created_date),
           Événement: TYPE_LABELS[row.type] || row.type,
-          Catalogue: row.catalogue_id,
+          Catalogue: catalogueTitles[row.catalogue_id] || row.catalogue_id,
           Page: row.page_number || '',
           Source: SOURCE_LABELS[row.source] || row.source || '',
           Appareil: DEVICE_LABELS[row.device] || row.device || '',
@@ -109,7 +117,7 @@ export default function StatsDashboard() {
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-6">
             <p className="font-display text-lg">Pages les plus lues</p>
-            <TopPagesList rows={overview?.topPages || []} />
+            <TopPagesList rows={overview?.topPages || []} catalogueTitles={catalogueTitles} />
           </div>
           <div className="rounded-xl border border-border bg-card p-6">
             <Breakdown title="Origine du trafic" rows={overview?.sources || []} labels={SOURCE_LABELS} />

@@ -43,7 +43,7 @@ export async function fetchOverview({ catalogueId, poleId, days }) {
       base44.entities.CatalogueEvent.aggregate({ query, countDistinct: 'visitor_id' }),
       base44.entities.CatalogueEvent.aggregate({
         query: { ...query, type: 'page' },
-        groupBy: 'page_number',
+        groupBy: ['catalogue_id', 'page_number'],
         sort: '-count',
         limit: 12,
       }),

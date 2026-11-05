@@ -1,6 +1,6 @@
 import { formatNumber } from '@/lib/format';
 
-export default function TopPagesList({ rows, onSelect }) {
+export default function TopPagesList({ rows, onSelect, catalogueTitles }) {
   const max = (rows || []).reduce((value, row) => Math.max(value, row.count || 0), 0) || 1;
 
   if (!rows?.length) {
@@ -9,24 +9,27 @@ export default function TopPagesList({ rows, onSelect }) {
 
   return (
     <ul className="mt-4 space-y-2">
-      {rows.map((row) => (
-        <li key={row.page_number}>
-          <button
-            type="button"
-            onClick={() => onSelect?.(row.page_number)}
-            disabled={!onSelect}
-            className="w-full rounded-lg px-2 py-2 text-left transition-colors enabled:hover:bg-secondary"
-          >
-            <div className="flex items-baseline justify-between text-sm">
-              <span>Page {row.page_number}</span>
-              <span className="text-xs tabular-nums text-muted-foreground">{formatNumber(row.count)} lectures</span>
-            </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-              <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max(3, (row.count / max) * 100)}%` }} />
-            </div>
-          </button>
-        </li>
-      ))}
+      {rows.map((row) => {
+        const title = catalogueTitles?.[row.catalogue_id];
+        return (
+          <li key={`${row.catalogue_id || ''}-${row.page_number}`}>
+            <button
+              type="button"
+              onClick={() => onSelect?.(row.page_number)}
+              disabled={!onSelect}
+              className="w-full rounded-lg px-2 py-2 text-left transition-colors enabled:hover:bg-secondary"
+            >
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="truncate">{title ? `${title} · Page ${row.page_number}` : `Page ${row.page_number}`}</span>
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatNumber(row.count)} lectures</span>
+              </div>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max(3, (row.count / max) * 100)}%` }} />
+              </div>
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }
