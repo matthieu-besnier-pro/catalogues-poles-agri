@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/lib/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,8 @@ const LANGUAGES = [
 
 export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const scopedPoleId = user?.role === 'admin' ? user?.pole_id || '' : '';
   const [poles, setPoles] = useState([]);
   const [form, setForm] = useState({
     title: catalogue.title,
@@ -49,8 +52,9 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    base44.entities.Pole.filter({}, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
-  }, []);
+    const query = scopedPoleId ? { id: scopedPoleId } : {};
+    base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
+  }, [scopedPoleId]);
 
   useEffect(() => {
     setForm({

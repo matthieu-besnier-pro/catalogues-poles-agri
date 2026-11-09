@@ -24,6 +24,11 @@ const TABS = [
 export default function StudioHome() {
   const { isAuthenticated, user } = useAuth();
   const isAdmin = isAuthenticated && user?.role === 'admin';
+  // An admin rattaché à une filiale ne voit que celle-ci — pas une barrière de
+  // sécurité (lui seul l'applique, rien ne l'empêche d'appeler l'API
+  // directement), juste un filtrage pour ne pas le perdre dans les
+  // catalogues des autres filiales.
+  const scopedPoleId = isAdmin ? user?.pole_id || '' : '';
   const navigate = useNavigate();
   const dragCounter = useRef(0);
   const [dragActive, setDragActive] = useState(false);
@@ -64,12 +69,14 @@ export default function StudioHome() {
   };
 
   useEffect(() => {
-    if (isAdmin) fetchStudioHome(30).then(setKpi);
-  }, [isAdmin]);
+    if (isAdmin) fetchStudioHome(30, scopedPoleId).then(setKpi);
+  }, [isAdmin, scopedPoleId]);
 
   useEffect(() => {
-    if (isAdmin) base44.entities.Pole.filter({}, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
-  }, [isAdmin]);
+    if (!isAdmin) return;
+    const query = scopedPoleId ? { id: scopedPoleId } : {};
+    base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
+  }, [isAdmin, scopedPoleId]);
 
   useEffect(() => {
     let active = true;
@@ -80,6 +87,7 @@ export default function StudioHome() {
       if (!isAdmin) query.status = 'published';
       else if (status === 'published' || status === 'draft') query.status = status;
       else query.status = { $ne: 'archived' };
+      if (scopedPoleId) query.pole_id = scopedPoleId;
       const cleaned = term.trim();
       if (cleaned) query.title = { $regex: escapeRegex(cleaned), $options: 'i' };
       const result = await base44.entities.Catalogue.filter(query, { sort: '-created_date', limit: isAdmin ? 500 : 60 });
@@ -91,7 +99,7 @@ export default function StudioHome() {
       active = false;
       window.clearTimeout(handle);
     };
-  }, [status, term, isAdmin]);
+  }, [status, term, isAdmin, scopedPoleId]);
 
   const handleUpdated = (id, patchedCatalogue) => {
     setCatalogues((current) => current.map((item) => (item.id === id ? { ...item, ...patchedCatalogue } : item)));

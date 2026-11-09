@@ -7,6 +7,13 @@
         "admin",
         "user"
       ]
+    },
+    "pole_id": {
+      "type": "string",
+      "description": "Filiale à laquelle cet administrateur est rattaché (vide = accès à toutes les filiales)"
+    },
+    "pole_name": {
+      "type": "string"
     }
   },
   "required": [

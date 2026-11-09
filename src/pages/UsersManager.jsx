@@ -11,6 +11,7 @@ export default function UsersManager() {
   const { toast } = useToast();
   const { user: me } = useAuth();
   const [users, setUsers] = useState([]);
+  const [poles, setPoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [savingId, setSavingId] = useState('');
@@ -32,6 +33,7 @@ export default function UsersManager() {
 
   useEffect(() => {
     load();
+    base44.entities.Pole.filter({}, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
   }, []);
 
   const changeRole = async (targetUser, role) => {
@@ -54,6 +56,27 @@ export default function UsersManager() {
     }
   };
 
+  const changePole = async (targetUser, poleValue) => {
+    const poleId = poleValue === 'all' ? '' : poleValue;
+    if (poleId === (targetUser.pole_id || '')) return;
+    const pole = poles.find((item) => item.id === poleId);
+    setSavingId(targetUser.id);
+    try {
+      const result = await base44.functions.invoke('updateUserRole', { userId: targetUser.id, role: targetUser.role, poleId });
+      if (result?.error) throw new Error(result.error);
+      setUsers((current) =>
+        current.map((item) =>
+          item.id === targetUser.id ? { ...item, pole_id: poleId, pole_name: pole?.name || '' } : item,
+        ),
+      );
+      toast({ title: 'Filiale mise à jour' });
+    } catch (error) {
+      toast({ title: 'Échec de la mise à jour', description: error?.message || '' });
+    } finally {
+      setSavingId('');
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-10 lg:px-12 lg:py-16">
       <header>
@@ -61,7 +84,9 @@ export default function UsersManager() {
         <h1 className="mt-3 font-display text-4xl leading-tight">Utilisateurs</h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
           Seuls les comptes administrateurs peuvent gérer les catalogues. Les nouvelles personnes doivent d’abord créer un
-          compte (onglet Connexion) : elles apparaissent ici ensuite, avec le rôle « Lecteur » par défaut.
+          compte (onglet Connexion) : elles apparaissent ici ensuite, avec le rôle « Lecteur » par défaut. Rattacher un
+          administrateur à une filiale filtre ce qu’il voit dans l’outil (liste des catalogues, statistiques) — cela ne
+          l’empêche pas techniquement d’accéder aux autres filiales, c’est une aide à la clarté, pas une restriction stricte.
         </p>
       </header>
 
@@ -102,15 +127,34 @@ export default function UsersManager() {
                     </p>
                   </div>
                 </div>
-                <Select value={item.role} onValueChange={(role) => changeRole(item, role)} disabled={savingId === item.id}>
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Administrateur</SelectItem>
-                    <SelectItem value="user">Lecteur</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select
+                    value={item.pole_id || 'all'}
+                    onValueChange={(value) => changePole(item, value)}
+                    disabled={savingId === item.id || item.role !== 'admin'}
+                  >
+                    <SelectTrigger className="w-[170px]">
+                      <SelectValue placeholder="Toutes les filiales" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes les filiales</SelectItem>
+                      {poles.map((pole) => (
+                        <SelectItem key={pole.id} value={pole.id}>
+                          {pole.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={item.role} onValueChange={(role) => changeRole(item, role)} disabled={savingId === item.id}>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Administrateur</SelectItem>
+                      <SelectItem value="user">Lecteur</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </li>
             ))}
           </ul>

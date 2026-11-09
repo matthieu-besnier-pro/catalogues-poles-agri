@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import CatalogueOptions from '@/components/studio/CatalogueOptions';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/lib/AuthContext';
 import { sha256 } from '@/lib/format';
 import { takePendingImport } from '@/lib/pendingImport';
 import { openPdfFile } from '@/lib/pdfEngine';
@@ -34,6 +35,8 @@ const STATUS_ICON = {
 
 export default function BulkImportWizard() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const scopedPoleId = user?.role === 'admin' ? user?.pole_id || '' : '';
   const input = useRef(null);
   const [items, setItems] = useState([]);
   const [over, setOver] = useState(false);
@@ -44,12 +47,13 @@ export default function BulkImportWizard() {
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    base44.entities.Pole.filter({}, { sort: 'display_order', limit: 50 }).then((page) => {
+    const query = scopedPoleId ? { id: scopedPoleId } : {};
+    base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => {
       const list = page.items || [];
       setPoles(list);
       setPoleId((current) => current || list[0]?.id || '');
     });
-  }, []);
+  }, [scopedPoleId]);
 
   const addFiles = (fileList) => {
     setDropError('');

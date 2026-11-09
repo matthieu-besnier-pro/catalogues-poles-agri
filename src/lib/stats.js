@@ -79,10 +79,10 @@ export async function fetchOverview({ catalogueId, poleId, days }) {
   });
 }
 
-export async function fetchCatalogueViews(days = 30) {
-  return cached(`views:${days}`, async () => {
+export async function fetchCatalogueViews(days = 30, poleId = '') {
+  return cached(`views:${days}:${poleId}`, async () => {
     const result = await base44.entities.CatalogueEvent.aggregate({
-      query: { ...periodQuery(days), type: 'view' },
+      query: { ...buildQuery({ poleId, days }), type: 'view' },
       groupBy: 'catalogue_id',
     });
     const map = {};

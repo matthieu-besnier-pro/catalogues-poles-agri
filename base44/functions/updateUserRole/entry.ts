@@ -15,7 +15,7 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ error: "Accès réservé aux administrateurs." }, { status: 403 });
     }
 
-    const { userId, role } = await req.json();
+    const { userId, role, poleId } = await req.json();
     if (!userId || !VALID_ROLES.includes(role)) {
       return Response.json({ error: "Paramètres invalides." }, { status: 400 });
     }
@@ -23,7 +23,19 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ error: "Vous ne pouvez pas retirer votre propre accès administrateur." }, { status: 400 });
     }
 
-    const updated = await base44.asServiceRole.entities.User.update(userId, { role });
+    const patch: Record<string, unknown> = { role };
+    if (poleId !== undefined) {
+      if (poleId) {
+        const pole = await base44.asServiceRole.entities.Pole.get(poleId);
+        patch.pole_id = pole.id;
+        patch.pole_name = pole.name;
+      } else {
+        patch.pole_id = "";
+        patch.pole_name = "";
+      }
+    }
+
+    const updated = await base44.asServiceRole.entities.User.update(userId, patch);
     return Response.json({ user: updated });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

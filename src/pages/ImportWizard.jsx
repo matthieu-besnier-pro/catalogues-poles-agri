@@ -12,6 +12,7 @@ import ConversionProgress from '@/components/studio/ConversionProgress';
 import PdfDropzone from '@/components/studio/PdfDropzone';
 import ShareBox from '@/components/studio/ShareBox';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/lib/AuthContext';
 import { sha256 } from '@/lib/format';
 import { takePendingImport } from '@/lib/pendingImport';
 import { openPdfFile } from '@/lib/pdfEngine';
@@ -33,6 +34,8 @@ const prettyName = (name) => name.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' ');
 
 export default function ImportWizard() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const scopedPoleId = user?.role === 'admin' ? user?.pole_id || '' : '';
   const releaseRef = useRef(null);
   const [step, setStep] = useState(0);
   const [file, setFile] = useState(null);
@@ -47,13 +50,14 @@ export default function ImportWizard() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    base44.entities.Pole.filter({}, { sort: 'display_order', limit: 50 }).then((page) => {
+    const query = scopedPoleId ? { id: scopedPoleId } : {};
+    base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => {
       const items = page.items || [];
       setPoles(items);
       setMeta((current) => ({ ...current, poleId: current.poleId || items[0]?.id || '' }));
     });
     return () => releaseRef.current?.();
-  }, []);
+  }, [scopedPoleId]);
 
   const handleFile = async (selected) => {
     setReading(true);

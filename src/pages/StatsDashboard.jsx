@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import { downloadText, formatDateTime, toCsv } from '@/lib/format';
 import { DEVICE_LABELS, SOURCE_LABELS, exportEvents, fetchOverview } from '@/lib/stats';
 
@@ -25,15 +26,20 @@ const TYPE_LABELS = {
 export default function StatsDashboard() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // Même filtrage « confort » que la liste des catalogues : un admin rattaché
+  // à une filiale ne voit ses stats que pour celle-ci.
+  const scopedPoleId = user?.role === 'admin' ? user?.pole_id || '' : '';
   const [days, setDays] = useState(30);
-  const [poleId, setPoleId] = useState('all');
+  const [poleId, setPoleId] = useState(scopedPoleId || 'all');
   const [poles, setPoles] = useState([]);
   const [catalogueTitles, setCatalogueTitles] = useState({});
   const [overview, setOverview] = useState(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
-    base44.entities.Pole.filter({}, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
+    const query = scopedPoleId ? { id: scopedPoleId } : {};
+    base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
     base44.entities.Catalogue.filter({}, { fields: ['id', 'title'], limit: 500 }).then((page) => {
       const map = {};
       (page.items || []).forEach((item) => {
@@ -41,7 +47,7 @@ export default function StatsDashboard() {
       });
       setCatalogueTitles(map);
     });
-  }, []);
+  }, [scopedPoleId]);
 
   useEffect(() => {
     let active = true;
@@ -92,12 +98,12 @@ export default function StatsDashboard() {
 
       <div className="mt-10 flex flex-wrap items-center gap-3">
         <PeriodSelect value={days} onChange={setDays} />
-        <Select value={poleId} onValueChange={setPoleId}>
+        <Select value={poleId} onValueChange={setPoleId} disabled={!!scopedPoleId}>
           <SelectTrigger className="h-9 w-[210px] rounded-full">
             <SelectValue placeholder="Tous les pôles" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tous les pôles</SelectItem>
+            {scopedPoleId ? null : <SelectItem value="all">Tous les pôles</SelectItem>}
             {poles.map((pole) => (
               <SelectItem key={pole.id} value={pole.id}>
                 {pole.name}
