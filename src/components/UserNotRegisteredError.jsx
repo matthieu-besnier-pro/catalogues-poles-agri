@@ -1,27 +1,31 @@
 import React from 'react';
+import { ShieldAlert, Sprout } from 'lucide-react';
 
 const UserNotRegisteredError = () => {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-white to-slate-50">
-      <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-lg border border-slate-100">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-full bg-orange-100">
-            <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-4">Access Restricted</h1>
-          <p className="text-slate-600 mb-8">
-            You are not registered to use this application. Please contact the app administrator to request access.
-          </p>
-          <div className="p-4 bg-slate-50 rounded-md text-sm text-slate-600">
-            <p>If you believe this is an error, you can:</p>
-            <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>Verify you are logged in with the correct account</li>
-              <li>Contact the app administrator for access</li>
-              <li>Try logging out and back in again</li>
-            </ul>
-          </div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      <div className="mb-8 flex flex-col items-center gap-1.5">
+        <div className="flex items-center gap-2 text-primary">
+          <Sprout className="h-5 w-5" aria-hidden="true" />
+          <span className="font-display text-xl leading-none">Catalogues</span>
+        </div>
+        <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Pôle Agri</p>
+      </div>
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
+          <ShieldAlert className="h-7 w-7 text-primary-foreground" aria-hidden="true" />
+        </div>
+        <h1 className="font-display text-3xl tracking-tight text-foreground">Accès restreint</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          Vous n'êtes pas inscrit pour utiliser cette application. Contactez l'administrateur pour demander l'accès.
+        </p>
+        <div className="mt-6 rounded-lg bg-secondary/60 p-4 text-left text-sm text-muted-foreground">
+          <p>Si vous pensez qu'il s'agit d'une erreur :</p>
+          <ul className="mt-2 list-inside list-disc space-y-1">
+            <li>Vérifiez que vous êtes connecté avec le bon compte</li>
+            <li>Contactez l'administrateur pour demander l'accès</li>
+            <li>Essayez de vous déconnecter puis reconnecter</li>
+          </ul>
         </div>
       </div>
     </div>

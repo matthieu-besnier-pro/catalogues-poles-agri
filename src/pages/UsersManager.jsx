@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
+import { Check, Copy, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import PoleMultiSelect from '@/components/studio/PoleMultiSelect';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { formatDate } from '@/lib/format';
+import { absoluteUrl, copyText, formatDate } from '@/lib/format';
 
 export default function UsersManager() {
   const { toast } = useToast();
@@ -16,6 +16,16 @@ export default function UsersManager() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [savingId, setSavingId] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
+  const registerLink = absoluteUrl('/register');
+
+  const copyRegisterLink = async () => {
+    const done = await copyText(registerLink);
+    if (done) {
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1800);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -86,7 +96,25 @@ export default function UsersManager() {
         </p>
       </header>
 
-      <div className="mt-10 overflow-hidden rounded-xl border border-border bg-card">
+      <div className="mt-8 rounded-xl border border-border bg-card p-5">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Lien d’inscription</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Partagez ce lien à la personne à inviter : elle arrive directement sur le formulaire de création de compte, sans
+          passer par l’écran de connexion.
+        </p>
+        <div className="mt-3 flex items-stretch gap-2">
+          <input
+            readOnly
+            value={registerLink}
+            className="min-w-0 flex-1 rounded-lg border border-border bg-white px-3 py-2 text-xs text-foreground/80"
+          />
+          <Button type="button" variant="outline" size="icon" onClick={copyRegisterLink} className="shrink-0 rounded-lg">
+            {linkCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
         {loading ? (
           <div className="space-y-3 p-6">
             {[0, 1, 2].map((key) => (

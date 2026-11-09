@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 
-const OPERATION_VERBS = { read: "view", create: "create", update: "edit", delete: "delete" };
+const OPERATION_VERBS = { read: "consulter", create: "créer", update: "modifier", delete: "supprimer" };
 const COLLAPSED_DATA_ROWS = 6;
 
 // Entity tools arrive one per operation; show each entity once, naming only the
@@ -33,14 +33,14 @@ function groupTools(tools) {
 const humanize = (name) =>
   name.split(/[_-]+/).filter(Boolean).map((word) => word[0].toUpperCase() + word.slice(1)).join(" ") || name;
 
-// "View, create and delete records" — delete is emphasized so it doesn't hide
-// among harmless verbs.
+// "Consulter, créer et supprimer des enregistrements" — delete est mis en
+// valeur pour ne pas se fondre parmi les verbes anodins.
 function OperationSummary({ operations }) {
   return (
     <>
       {operations.map((op, i) => {
         const verb = OPERATION_VERBS[op];
-        const separator = i === 0 ? "" : i === operations.length - 1 ? " and " : ", ";
+        const separator = i === 0 ? "" : i === operations.length - 1 ? " et " : ", ";
         return (
           <React.Fragment key={op}>
             {separator}
@@ -50,7 +50,7 @@ function OperationSummary({ operations }) {
           </React.Fragment>
         );
       })}{" "}
-      records
+      des enregistrements
     </>
   );
 }
@@ -95,7 +95,7 @@ export default function OAuthConsent() {
       let redirecting = false;
       try {
         if (!ctx) {
-          setError("This authorization link is invalid or has expired.");
+          setError("Ce lien d'autorisation est invalide ou a expiré.");
           return;
         }
         // Resolve the handle first: a dead handle must never render
@@ -111,7 +111,7 @@ export default function OAuthConsent() {
           { credentials: "include", headers: infoHeaders },
         );
         if (!res.ok) {
-          setError("This authorization link is invalid or has expired.");
+          setError("Ce lien d'autorisation est invalide ou a expiré.");
           return;
         }
         const data = await res.json();
@@ -142,7 +142,7 @@ export default function OAuthConsent() {
         }
         setInfo(data);
       } catch (e) {
-        setError("Could not load this authorization request. Please try again.");
+        setError("Impossible de charger cette demande d'autorisation. Veuillez réessayer.");
       } finally {
         if (!redirecting) setChecking(false);
       }
@@ -183,11 +183,11 @@ export default function OAuthConsent() {
         if ([400, 403, 404, 409].includes(res.status)) {
           let detail = "";
           try { detail = (await res.json()).detail; } catch (_) { /* keep default */ }
-          setReconnect(detail || "This authorization can no longer be completed. Reconnect from your AI client to try again.");
+          setReconnect(detail || "Cette autorisation ne peut plus être validée. Reconnectez-vous depuis votre client IA pour réessayer.");
           setSubmitting(false);
           return;
         }
-        throw new Error("Could not complete authorization. Please try again.");
+        throw new Error("Impossible de finaliser l'autorisation. Veuillez réessayer.");
       }
       const data = await res.json();
       window.location.href = data.redirect_url;
@@ -206,24 +206,24 @@ export default function OAuthConsent() {
 
   if (checking) {
     return (
-      <AuthLayout icon={ShieldCheck} title="Authorize access">
+      <AuthLayout icon={ShieldCheck} title="Autoriser l'accès">
         <div className="flex items-center justify-center py-6 text-muted-foreground">
           <Loader2 className="w-5 h-5 mr-2 animate-spin" aria-hidden="true" />
-          Loading…
+          Chargement…
         </div>
       </AuthLayout>
     );
   }
 
-  const client = (info && info.client_name) || "An AI client";
-  const appName = (info && info.app_name) || "this app";
+  const client = (info && info.client_name) || "Un client IA";
+  const appName = (info && info.app_name) || "cette application";
 
   if (decided) {
     return (
       <AuthLayout
         icon={ShieldCheck}
-        title={decided === "approve" ? "Access granted" : "Access denied"}
-        subtitle={`You can return to ${client} and close this window.`}
+        title={decided === "approve" ? "Accès accordé" : "Accès refusé"}
+        subtitle={`Vous pouvez retourner sur ${client} et fermer cette fenêtre.`}
       />
     );
   }
@@ -233,7 +233,7 @@ export default function OAuthConsent() {
   // no approve/deny controls.
   if (reconnect) {
     return (
-      <AuthLayout icon={ShieldCheck} title="Reconnect required">
+      <AuthLayout icon={ShieldCheck} title="Reconnexion requise">
         <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           {reconnect}
         </div>
@@ -246,7 +246,7 @@ export default function OAuthConsent() {
   // the error alone, never the approve/deny controls.
   if (error && !info) {
     return (
-      <AuthLayout icon={ShieldCheck} title="Authorize access">
+      <AuthLayout icon={ShieldCheck} title="Autoriser l'accès">
         <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error}
         </div>
@@ -260,8 +260,8 @@ export default function OAuthConsent() {
   return (
     <AuthLayout
       icon={ShieldCheck}
-      title="Authorize access"
-      subtitle={`${client} wants to access ${appName} on your behalf`}
+      title="Autoriser l'accès"
+      subtitle={`${client} souhaite accéder à ${appName} en votre nom`}
     >
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
@@ -270,12 +270,12 @@ export default function OAuthConsent() {
       )}
 
       <p className="text-sm font-medium text-foreground mb-3">
-        {tools.length ? `${client} will be able to:` : "No tools requested"}
+        {tools.length ? `${client} pourra :` : "Aucun outil demandé"}
       </p>
       {tools.length > 0 && (
         <div className="space-y-4 text-sm mb-6">
           {data.length > 0 && (
-            <ToolSection title={`Data (${data.length})`}>
+            <ToolSection title={`Données (${data.length})`}>
               {(showAllData ? data : data.slice(0, COLLAPSED_DATA_ROWS)).map(({ entity, operations }) => (
                 <ToolRow key={entity} title={entity}>
                   <OperationSummary operations={operations} />
@@ -288,7 +288,7 @@ export default function OAuthConsent() {
                     className="text-sm font-medium text-primary hover:underline"
                     onClick={() => setShowAllData((shown) => !shown)}
                   >
-                    {showAllData ? "Show less" : `Show all ${data.length}`}
+                    {showAllData ? "Afficher moins" : `Afficher les ${data.length}`}
                   </button>
                 </li>
               )}
@@ -322,7 +322,7 @@ export default function OAuthConsent() {
           disabled={submitting}
           onClick={() => respond("deny")}
         >
-          Deny
+          Refuser
         </Button>
         <Button
           className="flex-1 h-12 font-medium"
@@ -330,7 +330,7 @@ export default function OAuthConsent() {
           onClick={() => respond("approve")}
         >
           {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-          Approve
+          Autoriser
         </Button>
       </div>
     </AuthLayout>
