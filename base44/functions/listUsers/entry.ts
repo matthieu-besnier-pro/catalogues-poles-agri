@@ -12,9 +12,10 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ error: "Accès réservé aux administrateurs." }, { status: 403 });
     }
 
-    const result = await base44.asServiceRole.entities.User.filter({}, { sort: "-created_date", limit: 500 });
-    const items = Array.isArray(result) ? result : result?.items || [];
-    return Response.json({ items });
+    // The User entity only supports list() — filter/aggregate are refused
+    // ("use the app users endpoints"), even with asServiceRole.
+    const result = await base44.asServiceRole.entities.User.list("-created_date");
+    return Response.json({ items: Array.isArray(result) ? result : [] });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
