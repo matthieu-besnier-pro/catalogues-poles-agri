@@ -20,8 +20,9 @@ export default function UsersManager() {
     setLoadError('');
     try {
       const result = await base44.functions.invoke('listUsers', {});
-      if (result?.error) throw new Error(result.error);
-      setUsers(result?.items || []);
+      const payload = result?.data ?? result;
+      if (payload?.error) throw new Error(payload.error);
+      setUsers(payload?.items || []);
     } catch (error) {
       setLoadError(error?.message || 'Une erreur inconnue est survenue.');
     } finally {
@@ -42,7 +43,8 @@ export default function UsersManager() {
     setSavingId(targetUser.id);
     try {
       const result = await base44.functions.invoke('updateUserRole', { userId: targetUser.id, role });
-      if (result?.error) throw new Error(result.error);
+      const payload = result?.data ?? result;
+      if (payload?.error) throw new Error(payload.error);
       setUsers((current) => current.map((item) => (item.id === targetUser.id ? { ...item, role } : item)));
       toast({ title: 'Rôle mis à jour' });
     } catch (error) {
