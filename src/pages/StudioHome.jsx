@@ -24,11 +24,11 @@ const TABS = [
 export default function StudioHome() {
   const { isAuthenticated, user } = useAuth();
   const isAdmin = isAuthenticated && user?.role === 'admin';
-  // An admin rattaché à une filiale ne voit que celle-ci — pas une barrière de
-  // sécurité (lui seul l'applique, rien ne l'empêche d'appeler l'API
-  // directement), juste un filtrage pour ne pas le perdre dans les
+  // Un admin rattaché à une ou plusieurs filiales ne voit que celles-ci — pas
+  // une barrière de sécurité (lui seul l'applique, rien ne l'empêche d'appeler
+  // l'API directement), juste un filtrage pour ne pas le perdre dans les
   // catalogues des autres filiales.
-  const scopedPoleId = isAdmin ? user?.pole_id || '' : '';
+  const scopedPoleIds = isAdmin ? user?.pole_ids || [] : [];
   const navigate = useNavigate();
   const dragCounter = useRef(0);
   const [dragActive, setDragActive] = useState(false);
@@ -68,15 +68,19 @@ export default function StudioHome() {
     navigate(files.length > 1 ? '/nouveau/masse' : '/nouveau');
   };
 
+  const scopedPoleKey = scopedPoleIds.join(',');
+
   useEffect(() => {
-    if (isAdmin) fetchStudioHome(30, scopedPoleId).then(setKpi);
-  }, [isAdmin, scopedPoleId]);
+    if (isAdmin) fetchStudioHome(30, '', scopedPoleIds).then(setKpi);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, scopedPoleKey]);
 
   useEffect(() => {
     if (!isAdmin) return;
-    const query = scopedPoleId ? { id: scopedPoleId } : {};
+    const query = scopedPoleIds.length ? { id: { $in: scopedPoleIds } } : {};
     base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
-  }, [isAdmin, scopedPoleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, scopedPoleKey]);
 
   useEffect(() => {
     let active = true;
@@ -87,7 +91,7 @@ export default function StudioHome() {
       if (!isAdmin) query.status = 'published';
       else if (status === 'published' || status === 'draft') query.status = status;
       else query.status = { $ne: 'archived' };
-      if (scopedPoleId) query.pole_id = scopedPoleId;
+      if (scopedPoleIds.length) query.pole_id = { $in: scopedPoleIds };
       const cleaned = term.trim();
       if (cleaned) query.title = { $regex: escapeRegex(cleaned), $options: 'i' };
       const result = await base44.entities.Catalogue.filter(query, { sort: '-created_date', limit: isAdmin ? 500 : 60 });
@@ -99,7 +103,8 @@ export default function StudioHome() {
       active = false;
       window.clearTimeout(handle);
     };
-  }, [status, term, isAdmin, scopedPoleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, term, isAdmin, scopedPoleKey]);
 
   const handleUpdated = (id, patchedCatalogue) => {
     setCatalogues((current) => current.map((item) => (item.id === id ? { ...item, ...patchedCatalogue } : item)));
@@ -260,7 +265,7 @@ export default function StudioHome() {
             {isAdmin ? (
               <>
                 <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  Déposez le PDF d’un de vos pôles : les pages sont converties en images, le sommaire et le texte sont extraits, et
+                  Déposez le PDF d’une de vos filiales : les pages sont converties en images, le sommaire et le texte sont extraits, et
                   un lien public est généré en une seule opération.
                 </p>
                 <Button asChild size="lg" className="mt-7 rounded-full px-6">

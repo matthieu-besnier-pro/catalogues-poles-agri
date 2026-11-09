@@ -8,10 +8,13 @@ export function periodQuery(days) {
   return { created_date: { $gte: new Date(Date.now() - days * DAY).toISOString() } };
 }
 
-export function buildQuery({ catalogueId, poleId, days }) {
+export function buildQuery({ catalogueId, poleId, poleIds, days }) {
   const query = { ...periodQuery(days) };
   if (catalogueId) query.catalogue_id = catalogueId;
+  // A single poleId (one filter chosen in the UI) wins over a restricted set
+  // (an admin scoped to several filiales, viewing them combined).
   if (poleId) query.pole_id = poleId;
+  else if (poleIds?.length) query.pole_id = { $in: poleIds };
   return query;
 }
 
@@ -34,10 +37,10 @@ export function trendRows(rows) {
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
 
-export async function fetchOverview({ catalogueId, poleId, days }) {
-  const key = `overview:${catalogueId || ''}:${poleId || ''}:${days}`;
+export async function fetchOverview({ catalogueId, poleId, poleIds, days }) {
+  const key = `overview:${catalogueId || ''}:${poleId || ''}:${(poleIds || []).join(',')}:${days}`;
   return cached(key, async () => {
-    const query = buildQuery({ catalogueId, poleId, days });
+    const query = buildQuery({ catalogueId, poleId, poleIds, days });
     // Scoped to one catalogue: ranking its own pages is useful (shows where
     // readers drop off past the cover). Across every catalogue at once, that
     // same ranking just surfaces "page 1" of whichever catalogue has the most
@@ -79,10 +82,10 @@ export async function fetchOverview({ catalogueId, poleId, days }) {
   });
 }
 
-export async function fetchCatalogueViews(days = 30, poleId = '') {
-  return cached(`views:${days}:${poleId}`, async () => {
+export async function fetchCatalogueViews(days = 30, poleId = '', poleIds = []) {
+  return cached(`views:${days}:${poleId}:${poleIds.join(',')}`, async () => {
     const result = await base44.entities.CatalogueEvent.aggregate({
-      query: { ...buildQuery({ poleId, days }), type: 'view' },
+      query: { ...buildQuery({ poleId, poleIds, days }), type: 'view' },
       groupBy: 'catalogue_id',
     });
     const map = {};
@@ -93,8 +96,8 @@ export async function fetchCatalogueViews(days = 30, poleId = '') {
   });
 }
 
-export async function exportEvents({ catalogueId, poleId, days }) {
-  const query = buildQuery({ catalogueId, poleId, days });
+export async function exportEvents({ catalogueId, poleId, poleIds, days }) {
+  const query = buildQuery({ catalogueId, poleId, poleIds, days });
   const rows = [];
   let cursor;
   for (let page = 0; page < 20; page += 1) {

@@ -15,7 +15,7 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ error: "Accès réservé aux administrateurs." }, { status: 403 });
     }
 
-    const { userId, role, poleId } = await req.json();
+    const { userId, role, poleIds } = await req.json();
     if (!userId || !VALID_ROLES.includes(role)) {
       return Response.json({ error: "Paramètres invalides." }, { status: 400 });
     }
@@ -24,15 +24,8 @@ export default async function (req: Request): Promise<Response> {
     }
 
     const patch: Record<string, unknown> = { role };
-    if (poleId !== undefined) {
-      if (poleId) {
-        const pole = await base44.asServiceRole.entities.Pole.get(poleId);
-        patch.pole_id = pole.id;
-        patch.pole_name = pole.name;
-      } else {
-        patch.pole_id = "";
-        patch.pole_name = "";
-      }
+    if (poleIds !== undefined) {
+      patch.pole_ids = Array.isArray(poleIds) ? poleIds.filter((id) => typeof id === "string" && id) : [];
     }
 
     const updated = await base44.asServiceRole.entities.User.update(userId, patch);

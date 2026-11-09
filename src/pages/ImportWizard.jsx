@@ -35,7 +35,8 @@ const prettyName = (name) => name.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' ');
 export default function ImportWizard() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const scopedPoleId = user?.role === 'admin' ? user?.pole_id || '' : '';
+  const scopedPoleIds = user?.role === 'admin' ? user?.pole_ids || [] : [];
+  const scopedPoleKey = scopedPoleIds.join(',');
   const releaseRef = useRef(null);
   const [step, setStep] = useState(0);
   const [file, setFile] = useState(null);
@@ -50,14 +51,15 @@ export default function ImportWizard() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const query = scopedPoleId ? { id: scopedPoleId } : {};
+    const query = scopedPoleIds.length ? { id: { $in: scopedPoleIds } } : {};
     base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => {
       const items = page.items || [];
       setPoles(items);
       setMeta((current) => ({ ...current, poleId: current.poleId || items[0]?.id || '' }));
     });
     return () => releaseRef.current?.();
-  }, [scopedPoleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopedPoleKey]);
 
   const handleFile = async (selected) => {
     setReading(true);
@@ -162,10 +164,10 @@ export default function ImportWizard() {
                 <Input value={meta.title} onChange={(event) => setMeta({ ...meta, title: event.target.value })} className="mt-2" />
               </div>
               <div>
-                <Label>Pôle</Label>
+                <Label>Filiale</Label>
                 <Select value={meta.poleId} onValueChange={(value) => setMeta({ ...meta, poleId: value })}>
                   <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="Choisir un pôle" />
+                    <SelectValue placeholder="Choisir une filiale" />
                   </SelectTrigger>
                   <SelectContent>
                     {poles.map((pole) => (
@@ -177,7 +179,7 @@ export default function ImportWizard() {
                 </Select>
                 {!poles.length ? (
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Aucun pôle enregistré : créez-en un depuis l’onglet Pôles avant de publier.
+                    Aucune filiale enregistrée : créez-en une depuis l’onglet Filiales avant de publier.
                   </p>
                 ) : null}
               </div>

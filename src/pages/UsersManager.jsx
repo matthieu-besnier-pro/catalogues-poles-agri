@@ -3,6 +3,7 @@ import { RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import PoleMultiSelect from '@/components/studio/PoleMultiSelect';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { formatDate } from '@/lib/format';
@@ -56,20 +57,14 @@ export default function UsersManager() {
     }
   };
 
-  const changePole = async (targetUser, poleValue) => {
-    const poleId = poleValue === 'all' ? '' : poleValue;
-    if (poleId === (targetUser.pole_id || '')) return;
-    const pole = poles.find((item) => item.id === poleId);
+  const changePoles = async (targetUser, poleIds) => {
     setSavingId(targetUser.id);
     try {
-      const result = await base44.functions.invoke('updateUserRole', { userId: targetUser.id, role: targetUser.role, poleId });
-      if (result?.error) throw new Error(result.error);
-      setUsers((current) =>
-        current.map((item) =>
-          item.id === targetUser.id ? { ...item, pole_id: poleId, pole_name: pole?.name || '' } : item,
-        ),
-      );
-      toast({ title: 'Filiale mise à jour' });
+      const result = await base44.functions.invoke('updateUserRole', { userId: targetUser.id, role: targetUser.role, poleIds });
+      const payload = result?.data ?? result;
+      if (payload?.error) throw new Error(payload.error);
+      setUsers((current) => current.map((item) => (item.id === targetUser.id ? { ...item, pole_ids: poleIds } : item)));
+      toast({ title: 'Filiales mises à jour' });
     } catch (error) {
       toast({ title: 'Échec de la mise à jour', description: error?.message || '' });
     } finally {
@@ -85,8 +80,9 @@ export default function UsersManager() {
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
           Seuls les comptes administrateurs peuvent gérer les catalogues. Les nouvelles personnes doivent d’abord créer un
           compte (onglet Connexion) : elles apparaissent ici ensuite, avec le rôle « Lecteur » par défaut. Rattacher un
-          administrateur à une filiale filtre ce qu’il voit dans l’outil (liste des catalogues, statistiques) — cela ne
-          l’empêche pas techniquement d’accéder aux autres filiales, c’est une aide à la clarté, pas une restriction stricte.
+          administrateur à une ou plusieurs filiales filtre ce qu’il voit dans l’outil (liste des catalogues, statistiques) —
+          cela ne l’empêche pas techniquement d’accéder aux autres filiales, c’est une aide à la clarté, pas une restriction
+          stricte.
         </p>
       </header>
 
@@ -128,23 +124,13 @@ export default function UsersManager() {
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Select
-                    value={item.pole_id || 'all'}
-                    onValueChange={(value) => changePole(item, value)}
+                  <PoleMultiSelect
+                    poles={poles}
+                    value={item.pole_ids || []}
+                    onChange={(poleIds) => changePoles(item, poleIds)}
                     disabled={savingId === item.id || item.role !== 'admin'}
-                  >
-                    <SelectTrigger className="w-[170px]">
-                      <SelectValue placeholder="Toutes les filiales" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Toutes les filiales</SelectItem>
-                      {poles.map((pole) => (
-                        <SelectItem key={pole.id} value={pole.id}>
-                          {pole.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    className="h-9 w-[180px] justify-between gap-2 rounded-full px-4 text-sm font-normal"
+                  />
                   <Select value={item.role} onValueChange={(role) => changeRole(item, role)} disabled={savingId === item.id}>
                     <SelectTrigger className="w-[160px]">
                       <SelectValue />

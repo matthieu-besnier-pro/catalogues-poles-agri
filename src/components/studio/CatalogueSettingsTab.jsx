@@ -34,7 +34,8 @@ const LANGUAGES = [
 export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const scopedPoleId = user?.role === 'admin' ? user?.pole_id || '' : '';
+  const scopedPoleIds = user?.role === 'admin' ? user?.pole_ids || [] : [];
+  const scopedPoleKey = scopedPoleIds.join(',');
   const [poles, setPoles] = useState([]);
   const [form, setForm] = useState({
     title: catalogue.title,
@@ -52,9 +53,10 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const query = scopedPoleId ? { id: scopedPoleId } : {};
+    const query = scopedPoleIds.length ? { id: { $in: scopedPoleIds } } : {};
     base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
-  }, [scopedPoleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopedPoleKey]);
 
   useEffect(() => {
     setForm({

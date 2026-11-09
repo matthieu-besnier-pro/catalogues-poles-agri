@@ -62,7 +62,7 @@ export default function PolesManager() {
     if (editing.id) await base44.entities.Pole.update(editing.id, payload);
     else await base44.entities.Pole.create(payload);
     setEditing(null);
-    toast({ title: 'Pôle enregistré' });
+    toast({ title: 'Filiale enregistrée' });
     load();
   };
 
@@ -76,7 +76,7 @@ export default function PolesManager() {
 
   const remove = async (pole) => {
     await base44.entities.Pole.delete(pole.id);
-    toast({ title: 'Pôle supprimé', description: 'Les catalogues déjà publiés restent accessibles.' });
+    toast({ title: 'Filiale supprimée', description: 'Les catalogues déjà publiés restent accessibles.' });
     load();
   };
 
@@ -87,12 +87,12 @@ export default function PolesManager() {
           <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Organisation</p>
           <h1 className="mt-3 font-display text-4xl leading-tight">FILIALES</h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
-            Chaque catalogue appartient à un pôle : le nom, le logo et la couleur accompagnent la diffusion publique et les statistiques.
+            Chaque catalogue appartient à une filiale : le nom, le logo et la couleur accompagnent la diffusion publique et les statistiques.
           </p>
         </div>
         <Button size="lg" className="rounded-full px-6" onClick={() => setEditing({ ...EMPTY })}>
           <Plus className="mr-2 h-4 w-4" />
-          Nouveau pôle
+          Nouvelle filiale
         </Button>
       </header>
 
@@ -130,7 +130,7 @@ export default function PolesManager() {
                       <AlertDialogHeader>
                         <AlertDialogTitle>Supprimer « {pole.name} » ?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Les catalogues déjà publiés restent en ligne, mais ne seront plus rattachés à ce pôle.
+                          Les catalogues déjà publiés restent en ligne, mais ne seront plus rattachés à cette filiale.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -147,7 +147,7 @@ export default function PolesManager() {
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing?.id ? 'Modifier le pôle' : 'Nouveau pôle'}</DialogTitle>
+            <DialogTitle>{editing?.id ? 'Modifier la filiale' : 'Nouvelle filiale'}</DialogTitle>
           </DialogHeader>
           {editing ? (
             <div className="space-y-4">

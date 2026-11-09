@@ -7,7 +7,7 @@ const NAV = [
   { to: '/', label: 'Catalogues', icon: Library, end: true },
   { to: '/nouveau', label: 'Nouveau', icon: Plus, adminOnly: true },
   { to: '/statistiques', label: 'Statistiques', icon: BarChart3, adminOnly: true },
-  { to: '/poles', label: 'Pôles', icon: Sprout, adminOnly: true },
+  { to: '/poles', label: 'Filiales', icon: Sprout, adminOnly: true },
   { to: '/utilisateurs', label: 'Utilisateurs', icon: Users, adminOnly: true },
 ];
 

@@ -28,17 +28,21 @@ export default function StatsDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   // Même filtrage « confort » que la liste des catalogues : un admin rattaché
-  // à une filiale ne voit ses stats que pour celle-ci.
-  const scopedPoleId = user?.role === 'admin' ? user?.pole_id || '' : '';
+  // à une ou plusieurs filiales ne voit ses stats que pour celles-ci. « Toutes
+  // les filiales » reste sélectionnable mais ne porte alors que sur les
+  // filiales qui lui sont attribuées (la liste `poles` elle-même est déjà
+  // restreinte à celles-ci).
+  const scopedPoleIds = user?.role === 'admin' ? user?.pole_ids || [] : [];
+  const scopedPoleKey = scopedPoleIds.join(',');
   const [days, setDays] = useState(30);
-  const [poleId, setPoleId] = useState(scopedPoleId || 'all');
+  const [poleId, setPoleId] = useState('all');
   const [poles, setPoles] = useState([]);
   const [catalogueTitles, setCatalogueTitles] = useState({});
   const [overview, setOverview] = useState(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
-    const query = scopedPoleId ? { id: scopedPoleId } : {};
+    const query = scopedPoleIds.length ? { id: { $in: scopedPoleIds } } : {};
     base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
     base44.entities.Catalogue.filter({}, { fields: ['id', 'title'], limit: 500 }).then((page) => {
       const map = {};
@@ -47,22 +51,28 @@ export default function StatsDashboard() {
       });
       setCatalogueTitles(map);
     });
-  }, [scopedPoleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopedPoleKey]);
 
   useEffect(() => {
     let active = true;
     setOverview(null);
-    fetchOverview({ poleId: poleId === 'all' ? '' : poleId, days }).then((data) => {
+    fetchOverview({ poleId: poleId === 'all' ? '' : poleId, poleIds: poleId === 'all' ? scopedPoleIds : [], days }).then((data) => {
       if (active) setOverview(data);
     });
     return () => {
       active = false;
     };
-  }, [days, poleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days, poleId, scopedPoleKey]);
 
   const handleExport = async () => {
     setExporting(true);
-    const rows = await exportEvents({ poleId: poleId === 'all' ? '' : poleId, days });
+    const rows = await exportEvents({
+      poleId: poleId === 'all' ? '' : poleId,
+      poleIds: poleId === 'all' ? scopedPoleIds : [],
+      days,
+    });
     downloadText(
       toCsv(
         rows.map((row) => ({
@@ -98,12 +108,12 @@ export default function StatsDashboard() {
 
       <div className="mt-10 flex flex-wrap items-center gap-3">
         <PeriodSelect value={days} onChange={setDays} />
-        <Select value={poleId} onValueChange={setPoleId} disabled={!!scopedPoleId}>
+        <Select value={poleId} onValueChange={setPoleId}>
           <SelectTrigger className="h-9 w-[210px] rounded-full">
-            <SelectValue placeholder="Tous les pôles" />
+            <SelectValue placeholder="Toutes les filiales" />
           </SelectTrigger>
           <SelectContent>
-            {scopedPoleId ? null : <SelectItem value="all">Tous les pôles</SelectItem>}
+            <SelectItem value="all">Toutes les filiales</SelectItem>
             {poles.map((pole) => (
               <SelectItem key={pole.id} value={pole.id}>
                 {pole.name}

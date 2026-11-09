@@ -36,7 +36,8 @@ const STATUS_ICON = {
 export default function BulkImportWizard() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const scopedPoleId = user?.role === 'admin' ? user?.pole_id || '' : '';
+  const scopedPoleIds = user?.role === 'admin' ? user?.pole_ids || [] : [];
+  const scopedPoleKey = scopedPoleIds.join(',');
   const input = useRef(null);
   const [items, setItems] = useState([]);
   const [over, setOver] = useState(false);
@@ -47,13 +48,14 @@ export default function BulkImportWizard() {
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    const query = scopedPoleId ? { id: scopedPoleId } : {};
+    const query = scopedPoleIds.length ? { id: { $in: scopedPoleIds } } : {};
     base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => {
       const list = page.items || [];
       setPoles(list);
       setPoleId((current) => current || list[0]?.id || '');
     });
-  }, [scopedPoleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopedPoleKey]);
 
   const addFiles = (fileList) => {
     setDropError('');
@@ -153,7 +155,7 @@ export default function BulkImportWizard() {
 
       <h1 className="mt-6 font-display text-4xl leading-tight lg:text-5xl">Import en masse</h1>
       <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
-        Déposez plusieurs PDF : chacun devient un catalogue publié séparément, avec le même pôle et les mêmes réglages de
+        Déposez plusieurs PDF : chacun devient un catalogue publié séparément, avec la même filiale et les mêmes réglages de
         diffusion. Le titre de chaque catalogue reste modifiable avant publication.
       </p>
 
@@ -199,10 +201,10 @@ export default function BulkImportWizard() {
         <>
           <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_260px]">
             <div className="rounded-xl border border-border bg-card p-6">
-              <Label>Pôle</Label>
+              <Label>Filiale</Label>
               <Select value={poleId} onValueChange={setPoleId} disabled={running}>
                 <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Choisir un pôle" />
+                  <SelectValue placeholder="Choisir une filiale" />
                 </SelectTrigger>
                 <SelectContent>
                   {poles.map((pole) => (
@@ -214,7 +216,7 @@ export default function BulkImportWizard() {
               </Select>
               {!poles.length ? (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Aucun pôle enregistré : créez-en un depuis l’onglet Pôles avant de publier.
+                  Aucune filiale enregistrée : créez-en une depuis l’onglet Filiales avant de publier.
                 </p>
               ) : (
                 <p className="mt-2 text-xs text-muted-foreground">Appliqué à l’ensemble des catalogues de cet envoi.</p>
