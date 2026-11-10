@@ -16,6 +16,7 @@ import CatalogueDetail from '@/pages/CatalogueDetail';
 import StatsDashboard from '@/pages/StatsDashboard';
 import PolesManager from '@/pages/PolesManager';
 import UsersManager from '@/pages/UsersManager';
+import VisualsManager from '@/pages/VisualsManager';
 import PublicViewer from '@/pages/PublicViewer';
 import EmbedViewer from '@/pages/EmbedViewer';
 import Login from '@/pages/Login';
@@ -64,6 +65,7 @@ const AuthenticatedApp = () => {
         <Route path="/catalogue/:id" element={<CatalogueDetail />} />
         <Route path="/statistiques" element={<StatsDashboard />} />
         <Route path="/poles" element={<PolesManager />} />
+        <Route path="/visuels" element={<VisualsManager />} />
         <Route path="/utilisateurs" element={<UsersManager />} />
       </Route>
       <Route path="/c/:slug" element={<PublicViewer />} />

@@ -1,0 +1,32 @@
+{
+  "name": "Visual",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Nom interne du visuel (ex. Promo tracteur printemps)"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Lien public direct de l'image, hébergée par Base44"
+    },
+    "file_name": {
+      "type": "string"
+    },
+    "width": {
+      "type": "number"
+    },
+    "height": {
+      "type": "number"
+    },
+    "pole_id": {
+      "type": "string"
+    },
+    "pole_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "image_url"
+  ]
+}

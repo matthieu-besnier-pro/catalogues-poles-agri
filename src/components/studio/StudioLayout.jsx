@@ -1,11 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, Library, LogIn, LogOut, Plus, Sprout, Users } from 'lucide-react';
+import { BarChart3, Image, Library, LogIn, LogOut, Plus, Sprout, Users } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { cn } from '@/lib/utils';
 
 const NAV = [
   { to: '/', label: 'Catalogues', icon: Library, end: true },
   { to: '/nouveau', label: 'Nouveau', icon: Plus, adminOnly: true },
+  { to: '/visuels', label: 'Visuels', icon: Image, adminOnly: true },
   { to: '/statistiques', label: 'Statistiques', icon: BarChart3, adminOnly: true },
   { to: '/poles', label: 'Filiales', icon: Sprout, adminOnly: true },
   { to: '/utilisateurs', label: 'Utilisateurs', icon: Users, adminOnly: true },
