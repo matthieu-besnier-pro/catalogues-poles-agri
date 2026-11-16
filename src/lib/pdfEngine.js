@@ -85,6 +85,34 @@ export async function renderPageToCanvas(doc, pageNumber, { targetWidth = 1500, 
   return { canvas: cropped, width: cropped.width, height: cropped.height };
 }
 
+// For a single-page replacement supplied as a plain image rather than a PDF:
+// never upscale past its native resolution (that just blurs it), only
+// downscale if it's larger than the catalogue's usual page width.
+export async function renderImageFileToCanvas(file, maxWidth = 1500) {
+  const url = URL.createObjectURL(file);
+  try {
+    const bitmap = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Cette image n'a pas pu être lue."));
+      img.src = url;
+    });
+    const scale = Math.min(1, maxWidth / bitmap.naturalWidth);
+    const width = Math.max(1, Math.round(bitmap.naturalWidth * scale));
+    const height = Math.max(1, Math.round(bitmap.naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(bitmap, 0, 0, width, height);
+    return { canvas, width, height };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export function canvasToBlob(canvas, type = 'image/webp', quality = 0.82) {
   return new Promise((resolve) => {
     canvas.toBlob((blob) => {

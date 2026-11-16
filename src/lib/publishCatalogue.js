@@ -1,5 +1,13 @@
 import { base44 } from '@/api/base44Client';
-import { canvasToBlob, extractOutline, extractPageLinks, extractPageText, renderPageToCanvas } from '@/lib/pdfEngine';
+import {
+  canvasToBlob,
+  extractOutline,
+  extractPageLinks,
+  extractPageText,
+  openPdfFile,
+  renderImageFileToCanvas,
+  renderPageToCanvas,
+} from '@/lib/pdfEngine';
 import { uniqueSlug } from '@/lib/format';
 
 const SCREEN_WIDTH = 1500;
@@ -190,4 +198,62 @@ export async function replaceCataloguePdf({ file, doc, catalogue, crop, label, o
     });
     throw error;
   }
+}
+
+// Swaps a single page in place — the file dropped can be a one-page PDF
+// (same crop as the rest of the catalogue applies, for visual consistency)
+// or a plain image (already final, used as-is). Everything else — the other
+// pages, the version history, the conserved source PDF — stays untouched;
+// there's no reason a one-page fix should re-process the whole catalogue.
+export async function replaceCataloguePage({ catalogue, pageNumber, file, onProgress }) {
+  const notify = onProgress || (() => {});
+  notify({ stage: 'Lecture de la page', percent: 10 });
+
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  let rendered;
+  let text = '';
+  let links = [];
+  let release = null;
+
+  if (isPdf) {
+    const opened = await openPdfFile(file);
+    release = opened.release;
+    try {
+      rendered = await renderPageToCanvas(opened.doc, 1, { targetWidth: SCREEN_WIDTH, crop: catalogue.crop });
+      [text, links] = await Promise.all([extractPageText(opened.doc, 1), extractPageLinks(opened.doc, 1)]);
+    } finally {
+      release();
+    }
+  } else {
+    rendered = await renderImageFileToCanvas(file, SCREEN_WIDTH);
+  }
+
+  notify({ stage: 'Envoi de la page', percent: 55 });
+  const { canvas, width, height } = rendered;
+  const screen = await upload(canvas, `page-${pageNumber}-${Date.now()}.webp`, 'image/webp', 0.82);
+  canvas.width = 0;
+  canvas.height = 0;
+
+  const existing = await base44.entities.CataloguePage.filter(
+    { version_id: catalogue.active_version_id, page_number: pageNumber },
+    { limit: 1 },
+  );
+  const record = existing.items?.[0];
+  if (!record) throw new Error(`Page ${pageNumber} introuvable dans ce catalogue.`);
+
+  notify({ stage: 'Mise à jour du catalogue', percent: 85 });
+  await base44.entities.CataloguePage.update(record.id, {
+    image_url: screen.file_url,
+    width,
+    height,
+    text,
+    links,
+  });
+
+  if (pageNumber === 1) {
+    await base44.entities.Catalogue.update(catalogue.id, { cover_url: screen.file_url });
+  }
+
+  notify({ stage: 'Page remplacée', percent: 100 });
+  return { pageNumber, image_url: screen.file_url };
 }

@@ -49,7 +49,7 @@ export default function CatalogueDetail() {
         record.active_version_id
           ? base44.entities.CataloguePage.filter(
               { version_id: record.active_version_id },
-              { sort: 'page_number', limit: 12, fields: ['page_number', 'image_url'] },
+              { sort: 'page_number', limit: 500, fields: ['page_number', 'image_url'] },
             )
           : Promise.resolve({ items: [] }),
       ]);
@@ -284,7 +284,7 @@ export default function CatalogueDetail() {
         </section>
 
         <section>
-          <CataloguePreviewTab catalogue={catalogue} pages={pages} />
+          <CataloguePreviewTab catalogue={catalogue} pages={pages} onPageReplaced={load} />
         </section>
       </div>
 
