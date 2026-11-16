@@ -24,6 +24,25 @@ export function cropLabel(crop) {
   return hasCrop(crop) ? 'Recadrage manuel appliqué' : 'Aucune TrimBox détectée : pages diffusées sans rognage';
 }
 
+// The flipbook sizes every page from page 1's ratio alone (one shared frame
+// for the whole book) — a replacement rendered at its own natural size would
+// throw that off, showing up undersized/off-centre next to its neighbours.
+// Composing it onto a canvas matching the original page's exact width and
+// height keeps the book's geometry untouched, whatever shape the new file is.
+function fitToFrame(source, targetWidth, targetHeight) {
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, targetWidth, targetHeight);
+  const scale = Math.min(targetWidth / source.width, targetHeight / source.height);
+  const width = Math.max(1, Math.round(source.width * scale));
+  const height = Math.max(1, Math.round(source.height * scale));
+  context.drawImage(source, Math.round((targetWidth - width) / 2), Math.round((targetHeight - height) / 2), width, height);
+  return canvas;
+}
+
 async function upload(canvas, name, type, quality) {
   const blob = await canvasToBlob(canvas, type, quality);
   const file = new File([blob], name, { type: blob.type });
@@ -207,8 +226,16 @@ export async function replaceCataloguePdf({ file, doc, catalogue, crop, label, o
 // there's no reason a one-page fix should re-process the whole catalogue.
 export async function replaceCataloguePage({ catalogue, pageNumber, file, onProgress }) {
   const notify = onProgress || (() => {});
-  notify({ stage: 'Lecture de la page', percent: 10 });
+  notify({ stage: 'Lecture de la page', percent: 5 });
 
+  const existing = await base44.entities.CataloguePage.filter(
+    { version_id: catalogue.active_version_id, page_number: pageNumber },
+    { limit: 1 },
+  );
+  const record = existing.items?.[0];
+  if (!record) throw new Error(`Page ${pageNumber} introuvable dans ce catalogue.`);
+
+  notify({ stage: 'Lecture du fichier déposé', percent: 15 });
   const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
   let rendered;
   let text = '';
@@ -228,24 +255,24 @@ export async function replaceCataloguePage({ catalogue, pageNumber, file, onProg
     rendered = await renderImageFileToCanvas(file, SCREEN_WIDTH);
   }
 
-  notify({ stage: 'Envoi de la page', percent: 55 });
-  const { canvas, width, height } = rendered;
-  const screen = await upload(canvas, `page-${pageNumber}-${Date.now()}.webp`, 'image/webp', 0.82);
-  canvas.width = 0;
-  canvas.height = 0;
+  // Match the existing page's exact dimensions (when known) so the book's
+  // shared ratio — set once from page 1 — isn't thrown off by this one page.
+  const targetWidth = record.width || rendered.width;
+  const targetHeight = record.height || rendered.height;
+  const framed = fitToFrame(rendered.canvas, targetWidth, targetHeight);
+  rendered.canvas.width = 0;
+  rendered.canvas.height = 0;
 
-  const existing = await base44.entities.CataloguePage.filter(
-    { version_id: catalogue.active_version_id, page_number: pageNumber },
-    { limit: 1 },
-  );
-  const record = existing.items?.[0];
-  if (!record) throw new Error(`Page ${pageNumber} introuvable dans ce catalogue.`);
+  notify({ stage: 'Envoi de la page', percent: 55 });
+  const screen = await upload(framed, `page-${pageNumber}-${Date.now()}.webp`, 'image/webp', 0.82);
+  framed.width = 0;
+  framed.height = 0;
 
   notify({ stage: 'Mise à jour du catalogue', percent: 85 });
   await base44.entities.CataloguePage.update(record.id, {
     image_url: screen.file_url,
-    width,
-    height,
+    width: targetWidth,
+    height: targetHeight,
     text,
     links,
   });
