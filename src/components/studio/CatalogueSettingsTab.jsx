@@ -124,8 +124,16 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
     if (operationDate) {
       setForm((current) => ({ ...current, operation_date: operationDate.slice(0, 7) }));
       toast({ title: 'Date détectée', description: 'Enregistrez pour la conserver.' });
+    } else if (!coverText.trim()) {
+      toast({
+        title: 'Aucune date reconnue',
+        description: 'Aucun texte sélectionnable sur cette couverture : son texte est probablement vectorisé/dessiné, pas de l’OCR serait nécessaire pour en lire une.',
+      });
     } else {
-      toast({ title: 'Aucune date reconnue', description: 'Vérifiez le texte de la couverture ci-dessous, ou saisissez-la manuellement.' });
+      toast({
+        title: 'Aucune date reconnue',
+        description: `Du texte existe (${coverText.trim().length} caractères) mais rien n’y ressemble à une date. Voir le détail ci-dessous.`,
+      });
     }
   };
 
@@ -187,7 +195,7 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
                 Détectée depuis le texte de la couverture (ou, à défaut, le nom du PDF) à la mise en ligne ; corrigez-la ici si
                 besoin pour trier correctement.
               </p>
-              <details className="mt-2">
+              <details className="mt-2" open={!form.operation_date}>
                 <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-foreground">
                   Texte lu sur la couverture (diagnostic)
                 </summary>
