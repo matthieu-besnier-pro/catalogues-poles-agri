@@ -18,8 +18,8 @@ import { typeCount } from '@/lib/stats';
 import { cn } from '@/lib/utils';
 
 const SORT_OPTIONS = [
-  { value: 'created_date', label: "Date d'ajout" },
   { value: 'operation_date', label: "Date d'opération" },
+  { value: 'created_date', label: "Date d'ajout" },
 ];
 
 const isPdfFile = (file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
@@ -48,7 +48,7 @@ export default function StudioHome() {
   const [loading, setLoading] = useState(true);
   const [kpi, setKpi] = useState(null);
   const [view, setView] = useState('grid');
-  const [sortBy, setSortBy] = useState('created_date');
+  const [sortBy, setSortBy] = useState('operation_date');
   const [poles, setPoles] = useState([]);
   const [dropTargetId, setDropTargetId] = useState('');
 
