@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, FileText, Pencil } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Pencil, UploadCloud } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Image } from '@/components/ui/image';
 import StatusBadge from '@/components/studio/StatusBadge';
@@ -23,9 +24,10 @@ function QuickAction({ label, icon: Icon, onClick }) {
   );
 }
 
-export default function CatalogueCard({ catalogue, viewCount, to }) {
+export default function CatalogueCard({ catalogue, viewCount, to, onDropReplace, busy }) {
   const navigate = useNavigate();
   const admin = !to;
+  const [over, setOver] = useState(false);
 
   const browseUrl =
     catalogue.status === 'published'
@@ -41,8 +43,36 @@ export default function CatalogueCard({ catalogue, viewCount, to }) {
     window.open(signed_url, '_blank', 'noopener');
   };
 
+  const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+
   return (
-    <Link to={to || `/catalogue/${catalogue.id}`} className="group block">
+    <Link
+      to={to || `/catalogue/${catalogue.id}`}
+      className="group block"
+      onDragOver={(event) => {
+        if (!onDropReplace || !hasFiles(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onDragEnter={(event) => {
+        if (!onDropReplace || !hasFiles(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setOver(true);
+      }}
+      onDragLeave={(event) => {
+        if (!onDropReplace) return;
+        event.stopPropagation();
+        setOver(false);
+      }}
+      onDrop={(event) => {
+        if (!onDropReplace) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setOver(false);
+        onDropReplace(catalogue, event.dataTransfer.files?.[0]);
+      }}
+    >
       <div className="paper-soft relative aspect-[3/4] overflow-hidden rounded-lg border border-border bg-secondary">
         {catalogue.cover_url ? (
           <Image
@@ -58,6 +88,14 @@ export default function CatalogueCard({ catalogue, viewCount, to }) {
         <div className="absolute left-3 top-3">
           <StatusBadge status={catalogue.status} />
         </div>
+        {(over || busy) && onDropReplace ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-primary/90 text-center text-primary-foreground">
+            {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <UploadCloud className="h-6 w-6" />}
+            <p className="px-3 text-xs font-medium leading-snug">
+              {busy ? 'Mise à jour en cours…' : 'Déposer pour remplacer ce PDF'}
+            </p>
+          </div>
+        ) : null}
         {admin ? (
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-gradient-to-t from-black/55 to-transparent px-3 py-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <QuickAction label="Feuilleter" icon={BookOpen} onClick={() => window.open(browseUrl, '_blank', 'noopener')} />

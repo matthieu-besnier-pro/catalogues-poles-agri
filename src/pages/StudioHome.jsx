@@ -3,15 +3,24 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Download, Eye, FileUp, Layers, LayoutGrid, Plus, Rows3, Search, Sparkles, Users } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import CatalogueCard from '@/components/studio/CatalogueCard';
 import CatalogueTable from '@/components/studio/CatalogueTable';
 import StatCard from '@/components/studio/StatCard';
+import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
 import { escapeRegex, formatNumber, publicPath } from '@/lib/format';
 import { setPendingImport } from '@/lib/pendingImport';
+import { openPdfFile } from '@/lib/pdfEngine';
 import { fetchStudioHome } from '@/lib/queries';
+import { replaceCataloguePdf } from '@/lib/publishCatalogue';
 import { typeCount } from '@/lib/stats';
 import { cn } from '@/lib/utils';
+
+const SORT_OPTIONS = [
+  { value: 'created_date', label: "Date d'ajout" },
+  { value: 'operation_date', label: "Date d'opération" },
+];
 
 const isPdfFile = (file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 
@@ -22,6 +31,7 @@ const TABS = [
 ];
 
 export default function StudioHome() {
+  const { toast } = useToast();
   const { isAuthenticated, user } = useAuth();
   const isAdmin = isAuthenticated && user?.role === 'admin';
   // Un admin rattaché à une ou plusieurs filiales ne voit que celles-ci — pas
@@ -38,7 +48,9 @@ export default function StudioHome() {
   const [loading, setLoading] = useState(true);
   const [kpi, setKpi] = useState(null);
   const [view, setView] = useState('grid');
+  const [sortBy, setSortBy] = useState('created_date');
   const [poles, setPoles] = useState([]);
+  const [dropTargetId, setDropTargetId] = useState('');
 
   const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
 
@@ -94,7 +106,7 @@ export default function StudioHome() {
       if (scopedPoleIds.length) query.pole_id = { $in: scopedPoleIds };
       const cleaned = term.trim();
       if (cleaned) query.title = { $regex: escapeRegex(cleaned), $options: 'i' };
-      const result = await base44.entities.Catalogue.filter(query, { sort: '-created_date', limit: isAdmin ? 500 : 60 });
+      const result = await base44.entities.Catalogue.filter(query, { sort: `-${sortBy}`, limit: isAdmin ? 500 : 60 });
       if (!active) return;
       setCatalogues(result.items || []);
       setLoading(false);
@@ -104,7 +116,7 @@ export default function StudioHome() {
       window.clearTimeout(handle);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, term, isAdmin, scopedPoleKey]);
+  }, [status, term, isAdmin, scopedPoleKey, sortBy]);
 
   const handleUpdated = (id, patchedCatalogue) => {
     setCatalogues((current) => current.map((item) => (item.id === id ? { ...item, ...patchedCatalogue } : item)));
@@ -112,6 +124,37 @@ export default function StudioHome() {
 
   const handleDeleted = (ids) => {
     setCatalogues((current) => current.filter((item) => !ids.includes(item.id)));
+  };
+
+  // A PDF dropped directly on a catalogue's own card/row updates that
+  // catalogue in place (same flow as the "Remplacer" action in its Versions
+  // tab) — the public link and slug stay the same. Dropped on empty space
+  // instead, it's a new import (handleDrop above).
+  const handleDropReplace = async (catalogue, file) => {
+    // The card/row stops this drop from bubbling to the page's own drag
+    // handlers (so it isn't also treated as a brand-new import) — which
+    // means the page's own drag-counter overlay never gets its matching
+    // dragleave/drop to clear it. Reset it here instead.
+    dragCounter.current = 0;
+    setDragActive(false);
+    if (!file || (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name))) return;
+    setDropTargetId(catalogue.id);
+    toast({ title: `Mise à jour de « ${catalogue.title} »…` });
+    let opened = null;
+    try {
+      opened = await openPdfFile(file);
+      const result = await replaceCataloguePdf({ file, doc: opened.doc, catalogue, crop: catalogue.crop, onProgress: () => {} });
+      handleUpdated(catalogue.id, result.catalogue);
+      toast({
+        title: 'Catalogue mis à jour',
+        description: `${result.pageCount} pages converties. Le lien public n’a pas changé.`,
+      });
+    } catch (error) {
+      toast({ title: 'Échec de la mise à jour', description: error?.message || '' });
+    } finally {
+      opened?.release?.();
+      setDropTargetId('');
+    }
   };
 
   return (
@@ -189,6 +232,20 @@ export default function StudioHome() {
               />
             </div>
             {isAdmin ? (
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-9 w-[160px] rounded-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            {isAdmin ? (
               <div className="flex gap-1 rounded-full bg-secondary p-1">
                 {TABS.map((tab) => (
                   <button
@@ -249,7 +306,14 @@ export default function StudioHome() {
         ) : catalogues.length ? (
           isAdmin && view === 'list' ? (
             <div className="mt-8">
-              <CatalogueTable catalogues={catalogues} poles={poles} onUpdated={handleUpdated} onDeleted={handleDeleted} />
+              <CatalogueTable
+                catalogues={catalogues}
+                poles={poles}
+                onUpdated={handleUpdated}
+                onDeleted={handleDeleted}
+                onDropReplace={handleDropReplace}
+                dropTargetId={dropTargetId}
+              />
             </div>
           ) : (
             <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
@@ -259,6 +323,8 @@ export default function StudioHome() {
                   catalogue={catalogue}
                   viewCount={isAdmin ? kpi?.views?.[catalogue.id] || 0 : undefined}
                   to={isAdmin ? undefined : publicPath(catalogue.slug)}
+                  onDropReplace={isAdmin ? handleDropReplace : undefined}
+                  busy={dropTargetId === catalogue.id}
                 />
               ))}
             </div>

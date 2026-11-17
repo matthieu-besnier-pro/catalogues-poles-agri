@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, FileText, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Pencil, Trash2, UploadCloud } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import {
   AlertDialog,
@@ -20,6 +20,7 @@ import { Switch } from '@/components/ui/switch';
 import { Image } from '@/components/ui/image';
 import { useToast } from '@/components/ui/use-toast';
 import { formatDate, formatNumber, publicPath } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 const STATUS_OPTIONS = [
   { value: 'draft', label: 'Brouillon' },
@@ -41,12 +42,15 @@ function RowAction({ label, icon: Icon, onClick }) {
   );
 }
 
-export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted }) {
+export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted, onDropReplace, dropTargetId }) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [savingId, setSavingId] = useState('');
   const [selected, setSelected] = useState([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [overId, setOverId] = useState('');
+
+  const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
 
   const patch = async (catalogue, payload, successMessage) => {
     setSavingId(catalogue.id);
@@ -231,13 +235,43 @@ export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted
               <th className="px-4 py-3 font-medium">Filiale</th>
               <th className="px-4 py-3 font-medium">Statut</th>
               <th className="px-4 py-3 font-medium">Téléchargement</th>
+              <th className="px-4 py-3 font-medium">Date d’opération</th>
               <th className="px-4 py-3 font-medium">Publié le</th>
               <th className="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {catalogues.map((catalogue) => (
-              <tr key={catalogue.id} className={savingId === catalogue.id ? 'opacity-60' : undefined}>
+              <tr
+                key={catalogue.id}
+                className={cn(
+                  savingId === catalogue.id && 'opacity-60',
+                  (overId === catalogue.id || dropTargetId === catalogue.id) && onDropReplace && 'bg-primary/5',
+                )}
+                onDragOver={(event) => {
+                  if (!onDropReplace || !hasFiles(event)) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onDragEnter={(event) => {
+                  if (!onDropReplace || !hasFiles(event)) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setOverId(catalogue.id);
+                }}
+                onDragLeave={(event) => {
+                  if (!onDropReplace) return;
+                  event.stopPropagation();
+                  setOverId((current) => (current === catalogue.id ? '' : current));
+                }}
+                onDrop={(event) => {
+                  if (!onDropReplace) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setOverId('');
+                  onDropReplace(catalogue, event.dataTransfer.files?.[0]);
+                }}
+              >
                 <td className="px-4 py-3">
                   <Checkbox
                     checked={selected.includes(catalogue.id)}
@@ -247,16 +281,29 @@ export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted
                 </td>
                 <td className="px-4 py-3">
                 <div className="flex min-w-[220px] items-center gap-3">
-                  <span className="h-12 w-9 shrink-0 overflow-hidden rounded border border-border bg-secondary">
+                  <span className="relative h-12 w-9 shrink-0 overflow-hidden rounded border border-border bg-secondary">
                     {catalogue.cover_url ? (
                       <Image src={catalogue.cover_url} alt={catalogue.title} className="h-full w-full" />
                     ) : (
                       <FileText className="h-full w-full p-2 text-muted-foreground" />
                     )}
+                    {(overId === catalogue.id || dropTargetId === catalogue.id) && onDropReplace ? (
+                      <span className="absolute inset-0 flex items-center justify-center bg-primary/90 text-primary-foreground">
+                        {dropTargetId === catalogue.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <UploadCloud className="h-4 w-4" />
+                        )}
+                      </span>
+                    ) : null}
                   </span>
                   <div className="min-w-0">
                     <p className="truncate font-medium">{catalogue.title}</p>
-                    <p className="text-xs text-muted-foreground">{formatNumber(catalogue.page_count)} pages</p>
+                    <p className="text-xs text-muted-foreground">
+                      {overId === catalogue.id && onDropReplace
+                        ? 'Déposer pour remplacer le PDF'
+                        : `${formatNumber(catalogue.page_count)} pages`}
+                    </p>
                   </div>
                 </div>
               </td>
@@ -294,6 +341,11 @@ export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted
                   onCheckedChange={(checked) => toggleDownload(catalogue, checked)}
                   disabled={savingId === catalogue.id}
                 />
+              </td>
+              <td className="px-4 py-3 text-xs text-muted-foreground">
+                {catalogue.operation_date
+                  ? new Date(catalogue.operation_date).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+                  : '—'}
               </td>
               <td className="px-4 py-3 text-xs text-muted-foreground">
                 {catalogue.status === 'published' ? formatDate(catalogue.published_date) : '—'}

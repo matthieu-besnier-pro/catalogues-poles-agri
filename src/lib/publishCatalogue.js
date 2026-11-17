@@ -8,7 +8,7 @@ import {
   renderImageFileToCanvas,
   renderPageToCanvas,
 } from '@/lib/pdfEngine';
-import { uniqueSlug } from '@/lib/format';
+import { detectOperationDate, uniqueSlug } from '@/lib/format';
 
 const SCREEN_WIDTH = 1500;
 const PAGE_BATCH = 8;
@@ -132,6 +132,10 @@ export async function createCatalogueWithPdf({ file, doc, meta, options, crop, o
     theme_color: options.theme_color || meta.pole?.color || '',
     preview_token: Math.random().toString(36).slice(2, 10),
     trim_note: cropLabel(crop),
+    // Détecté depuis le nom du fichier à la mise en ligne ; modifiable ensuite
+    // dans les réglages du catalogue si l'auto-détection se trompe ou ne
+    // trouve rien.
+    operation_date: meta.operationDate || detectOperationDate(file.name),
   });
 
   const version = await base44.entities.CatalogueVersion.create({

@@ -43,6 +43,7 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
     language: catalogue.language || 'fr',
     theme_color: catalogue.theme_color || '#1C4A38',
     pole_id: catalogue.pole_id || '',
+    operation_date: (catalogue.operation_date || '').slice(0, 7),
   });
   const [options, setOptions] = useState({
     download_enabled: !!catalogue.download_enabled,
@@ -65,6 +66,7 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
       language: catalogue.language || 'fr',
       theme_color: catalogue.theme_color || '#1C4A38',
       pole_id: catalogue.pole_id || '',
+      operation_date: (catalogue.operation_date || '').slice(0, 7),
     });
   }, [catalogue]);
 
@@ -79,6 +81,7 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
       pole_id: pole?.id || '',
       pole_name: pole?.name || '',
       pole_slug: pole?.slug || '',
+      operation_date: form.operation_date ? `${form.operation_date}-01` : '',
       download_enabled: options.download_enabled,
       search_enabled: options.search_enabled,
       no_index: options.no_index,
@@ -130,6 +133,18 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Date d’opération</Label>
+              <input
+                type="month"
+                value={form.operation_date}
+                onChange={(event) => setForm({ ...form, operation_date: event.target.value })}
+                className="mt-2 h-10 w-[190px] rounded-lg border border-border bg-white px-3 text-sm"
+              />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                Détectée depuis le nom du PDF à la mise en ligne ; corrigez-la ici si besoin pour trier correctement.
+              </p>
             </div>
             <div className="flex flex-wrap gap-4">
               <div>

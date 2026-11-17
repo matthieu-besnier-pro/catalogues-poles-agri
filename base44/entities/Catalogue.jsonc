@@ -102,6 +102,10 @@
     },
     "published_date": {
       "type": "string"
+    },
+    "operation_date": {
+      "type": "string",
+      "description": "Mois de l'opération commerciale (AAAA-MM-01), détecté depuis le nom du PDF à la mise en ligne ou modifiable manuellement"
     }
   },
   "required": [

@@ -27,6 +27,72 @@ export function detectPole(fileName, poles) {
   return null;
 }
 
+const MONTHS_FR = {
+  janvier: 1,
+  janv: 1,
+  jan: 1,
+  fevrier: 2,
+  fevr: 2,
+  fev: 2,
+  mars: 3,
+  mar: 3,
+  avril: 4,
+  avr: 4,
+  mai: 5,
+  juin: 6,
+  juillet: 7,
+  juil: 7,
+  aout: 8,
+  aou: 8,
+  septembre: 9,
+  sept: 9,
+  sep: 9,
+  octobre: 10,
+  oct: 10,
+  novembre: 11,
+  nov: 11,
+  decembre: 12,
+  dec: 12,
+};
+// Longest names first, so "avril" wins over the "avr" abbreviation on the same text.
+const MONTH_PATTERN = Object.keys(MONTHS_FR)
+  .sort((a, b) => b.length - a.length)
+  .join('|');
+const YEAR = '(19|20)\\d{2}';
+
+// Guesses a catalogue's "operation" month from its file name, for sorting by
+// commercial period rather than upload date — e.g. "Promo_Avril2026.pdf" or
+// "Catalogue-04-2026.pdf" both resolve to 2026-04-01. Best-effort: a bare
+// year with no month attached is too ambiguous and is left undetected.
+export function detectOperationDate(fileName) {
+  const slug = slugify(fileName);
+  if (!slug) return '';
+
+  const byName =
+    new RegExp(`(?:^|-)(${MONTH_PATTERN})-?(${YEAR})(?:-|$)`).exec(slug) ||
+    new RegExp(`(?:^|-)(${YEAR})-?(${MONTH_PATTERN})(?:-|$)`).exec(slug);
+  if (byName) {
+    const [, first, second] = byName;
+    const isYearFirst = /^\d{4}$/.test(first);
+    const year = isYearFirst ? first : second;
+    const month = MONTHS_FR[isYearFirst ? second : first];
+    if (month) return `${year}-${String(month).padStart(2, '0')}-01`;
+  }
+
+  const numeric =
+    /(?:^|-)(0[1-9]|1[0-2])-?((?:19|20)\d{2})(?:-|$)/.exec(slug) ||
+    /(?:^|-)((?:19|20)\d{2})-?(0[1-9]|1[0-2])(?:-|$)/.exec(slug);
+  if (numeric) {
+    const [, first, second] = numeric;
+    const isYearFirst = /^\d{4}$/.test(first);
+    const year = isYearFirst ? first : second;
+    const month = isYearFirst ? second : first;
+    return `${year}-${month}-01`;
+  }
+
+  return '';
+}
+
 export function formatDate(value) {
   if (!value) return '—';
   return new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
