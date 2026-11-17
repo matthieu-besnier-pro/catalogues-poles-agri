@@ -110,6 +110,10 @@ export default function StudioHome() {
     setCatalogues((current) => current.map((item) => (item.id === id ? { ...item, ...patchedCatalogue } : item)));
   };
 
+  const handleDeleted = (ids) => {
+    setCatalogues((current) => current.filter((item) => !ids.includes(item.id)));
+  };
+
   return (
     <div
       onDragEnter={handleDragEnter}
@@ -245,7 +249,7 @@ export default function StudioHome() {
         ) : catalogues.length ? (
           isAdmin && view === 'list' ? (
             <div className="mt-8">
-              <CatalogueTable catalogues={catalogues} poles={poles} onUpdated={handleUpdated} />
+              <CatalogueTable catalogues={catalogues} poles={poles} onUpdated={handleUpdated} onDeleted={handleDeleted} />
             </div>
           ) : (
             <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">

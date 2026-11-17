@@ -1,7 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, FileText, Pencil } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Image } from '@/components/ui/image';
@@ -28,10 +41,12 @@ function RowAction({ label, icon: Icon, onClick }) {
   );
 }
 
-export default function CatalogueTable({ catalogues, poles, onUpdated }) {
+export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted }) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [savingId, setSavingId] = useState('');
+  const [selected, setSelected] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const patch = async (catalogue, payload, successMessage) => {
     setSavingId(catalogue.id);
@@ -77,23 +92,160 @@ export default function CatalogueTable({ catalogues, poles, onUpdated }) {
       ? publicPath(catalogue.slug, '?open=1')
       : publicPath(catalogue.slug, `?open=1&rev=${catalogue.preview_token}`);
 
+  const allSelected = catalogues.length > 0 && selected.length === catalogues.length;
+  const someSelected = selected.length > 0 && !allSelected;
+
+  const toggleAll = (checked) => setSelected(checked ? catalogues.map((item) => item.id) : []);
+  const toggleOne = (id, checked) =>
+    setSelected((current) => (checked ? [...current, id] : current.filter((item) => item !== id)));
+
+  const bulkChangePole = async (poleId) => {
+    const pole = poles.find((item) => item.id === poleId) || null;
+    setBulkBusy(true);
+    try {
+      await Promise.all(
+        selected.map((id) =>
+          base44.entities.Catalogue.update(id, { pole_id: pole?.id || '', pole_name: pole?.name || '', pole_slug: pole?.slug || '' }).then(
+            (updated) => onUpdated(id, updated),
+          ),
+        ),
+      );
+      toast({ title: `Filiale mise à jour pour ${selected.length} catalogue${selected.length > 1 ? 's' : ''}` });
+    } catch (error) {
+      toast({ title: 'Échec de la mise à jour groupée', description: error?.message || '' });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const bulkChangeStatus = async (status) => {
+    setBulkBusy(true);
+    try {
+      await Promise.all(
+        selected.map((id) => {
+          const current = catalogues.find((item) => item.id === id);
+          return base44.entities.Catalogue.update(id, {
+            status,
+            published_date: status === 'published' ? current?.published_date || new Date().toISOString() : current?.published_date,
+          }).then((updated) => onUpdated(id, updated));
+        }),
+      );
+      toast({ title: `Statut mis à jour pour ${selected.length} catalogue${selected.length > 1 ? 's' : ''}` });
+    } catch (error) {
+      toast({ title: 'Échec de la mise à jour groupée', description: error?.message || '' });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    const ids = selected;
+    setBulkBusy(true);
+    try {
+      await Promise.all([
+        base44.entities.CataloguePage.deleteMany({ catalogue_id: { $in: ids } }),
+        base44.entities.CatalogueVersion.deleteMany({ catalogue_id: { $in: ids } }),
+        base44.entities.CatalogueEvent.deleteMany({ catalogue_id: { $in: ids } }),
+      ]);
+      await base44.entities.Catalogue.deleteMany({ id: { $in: ids } });
+      setSelected([]);
+      onDeleted?.(ids);
+      toast({ title: `${ids.length} catalogue${ids.length > 1 ? 's supprimés' : ' supprimé'}` });
+    } catch (error) {
+      toast({ title: 'Échec de la suppression groupée', description: error?.message || '' });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card">
-      <table className="w-full min-w-[840px] border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-            <th className="px-4 py-3 font-medium">Catalogue</th>
-            <th className="px-4 py-3 font-medium">Filiale</th>
-            <th className="px-4 py-3 font-medium">Statut</th>
-            <th className="px-4 py-3 font-medium">Téléchargement</th>
-            <th className="px-4 py-3 font-medium">Publié le</th>
-            <th className="px-4 py-3 font-medium text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {catalogues.map((catalogue) => (
-            <tr key={catalogue.id} className={savingId === catalogue.id ? 'opacity-60' : undefined}>
-              <td className="px-4 py-3">
+    <div className="space-y-3">
+      {selected.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <span className="text-sm font-medium">
+            {selected.length} sélectionné{selected.length > 1 ? 's' : ''}
+          </span>
+          {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : null}
+          <Select onValueChange={bulkChangePole} disabled={bulkBusy}>
+            <SelectTrigger className="h-8 w-[170px]">
+              <SelectValue placeholder="Changer la filiale" />
+            </SelectTrigger>
+            <SelectContent>
+              {poles.map((pole) => (
+                <SelectItem key={pole.id} value={pole.id}>
+                  {pole.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select onValueChange={bulkChangeStatus} disabled={bulkBusy}>
+            <SelectTrigger className="h-8 w-[150px]">
+              <SelectValue placeholder="Changer le statut" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="ml-auto rounded-full text-destructive" disabled={bulkBusy}>
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                Supprimer la sélection
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Supprimer {selected.length} catalogue{selected.length > 1 ? 's' : ''} ?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Cette action est définitive : les catalogues, leurs pages converties et leurs statistiques seront supprimés,
+                  et leurs liens publics cesseront immédiatement de fonctionner.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={bulkDelete}>Supprimer</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      ) : null}
+
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <table className="w-full min-w-[880px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              <th className="w-10 px-4 py-3">
+                <Checkbox
+                  checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                  onCheckedChange={toggleAll}
+                  aria-label="Tout sélectionner"
+                />
+              </th>
+              <th className="px-4 py-3 font-medium">Catalogue</th>
+              <th className="px-4 py-3 font-medium">Filiale</th>
+              <th className="px-4 py-3 font-medium">Statut</th>
+              <th className="px-4 py-3 font-medium">Téléchargement</th>
+              <th className="px-4 py-3 font-medium">Publié le</th>
+              <th className="px-4 py-3 font-medium text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {catalogues.map((catalogue) => (
+              <tr key={catalogue.id} className={savingId === catalogue.id ? 'opacity-60' : undefined}>
+                <td className="px-4 py-3">
+                  <Checkbox
+                    checked={selected.includes(catalogue.id)}
+                    onCheckedChange={(checked) => toggleOne(catalogue.id, checked)}
+                    aria-label={`Sélectionner ${catalogue.title}`}
+                  />
+                </td>
+                <td className="px-4 py-3">
                 <div className="flex min-w-[220px] items-center gap-3">
                   <span className="h-12 w-9 shrink-0 overflow-hidden rounded border border-border bg-secondary">
                     {catalogue.cover_url ? (
@@ -155,8 +307,9 @@ export default function CatalogueTable({ catalogues, poles, onUpdated }) {
               </td>
             </tr>
           ))}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
