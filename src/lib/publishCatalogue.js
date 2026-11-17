@@ -54,6 +54,7 @@ async function renderAndStore({ doc, file, catalogueId, versionId, crop, onProgr
   const toc = await extractOutline(doc);
   let batch = [];
   let cover = '';
+  let coverText = '';
   let completed = 0;
 
   // Flush before awaiting the network call, not after: two workers can both
@@ -78,7 +79,10 @@ async function renderAndStore({ doc, file, catalogueId, versionId, crop, onProgr
     canvas.width = 0;
     canvas.height = 0;
     const [text, links] = await Promise.all([extractPageText(doc, number), extractPageLinks(doc, number)]);
-    if (number === 1) cover = screen.file_url;
+    if (number === 1) {
+      cover = screen.file_url;
+      coverText = text;
+    }
     completed += 1;
     onProgress({ stage: `Page ${completed} sur ${total}`, percent: 6 + Math.round((completed / total) * 84), page: number, total });
     batch.push({
@@ -108,7 +112,7 @@ async function renderAndStore({ doc, file, catalogueId, versionId, crop, onProgr
   await Promise.all(Array.from({ length: Math.min(PAGE_CONCURRENCY, total) }, worker));
 
   await flushBatch();
-  return { total, toc, cover };
+  return { total, toc, cover, coverText };
 }
 
 export async function createCatalogueWithPdf({ file, doc, meta, options, crop, onProgress }) {
@@ -132,10 +136,6 @@ export async function createCatalogueWithPdf({ file, doc, meta, options, crop, o
     theme_color: options.theme_color || meta.pole?.color || '',
     preview_token: Math.random().toString(36).slice(2, 10),
     trim_note: cropLabel(crop),
-    // Détecté depuis le nom du fichier à la mise en ligne ; modifiable ensuite
-    // dans les réglages du catalogue si l'auto-détection se trompe ou ne
-    // trouve rien.
-    operation_date: meta.operationDate || detectOperationDate(file.name),
   });
 
   const version = await base44.entities.CatalogueVersion.create({
@@ -167,6 +167,10 @@ export async function createCatalogueWithPdf({ file, doc, meta, options, crop, o
       crop: crop || NO_CROP,
       pdf_file_uri: file_uri,
       pdf_file_name: file.name,
+      // L'essentiel du signal vient de ce qui est réellement imprimé sur la
+      // couverture ("Offre valable du 1er au 30 avril 2026") ; le nom du
+      // fichier ne sert que de repli quand la couverture n'en dit rien.
+      operation_date: meta.operationDate || detectOperationDate(file.name, result.coverText),
       status: 'published',
       published_date: new Date().toISOString(),
     });

@@ -142,9 +142,10 @@ export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted
     }
   };
 
-  // Relance la détection sur le nom du PDF déjà enregistré — utile pour les
-  // catalogues publiés avant l'existence de ce champ, sans rouvrir chacun
-  // dans ses réglages.
+  // Relance la détection — d'abord sur le texte de la couverture (ce qui est
+  // réellement imprimé dessus, déjà extrait et stocké pour la recherche),
+  // sinon sur le nom du PDF enregistré — utile pour les catalogues publiés
+  // avant l'existence de ce champ, sans rouvrir chacun dans ses réglages.
   const bulkDetectDate = async () => {
     setBulkBusy(true);
     try {
@@ -152,7 +153,16 @@ export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted
       await Promise.all(
         selected.map(async (id) => {
           const current = catalogues.find((item) => item.id === id);
-          const operationDate = detectOperationDate(current?.pdf_file_name || '');
+          if (!current) return;
+          let coverText = '';
+          if (current.active_version_id) {
+            const cover = await base44.entities.CataloguePage.filter(
+              { version_id: current.active_version_id, page_number: 1 },
+              { limit: 1, fields: ['text'] },
+            );
+            coverText = cover.items?.[0]?.text || '';
+          }
+          const operationDate = detectOperationDate(current.pdf_file_name || '', coverText);
           if (!operationDate) return;
           detected += 1;
           const updated = await base44.entities.Catalogue.update(id, { operation_date: operationDate });
@@ -162,7 +172,7 @@ export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted
       toast({
         title: detected
           ? `Date détectée pour ${detected} catalogue${detected > 1 ? 's' : ''}`
-          : 'Aucune date détectée dans le nom des PDF sélectionnés',
+          : 'Aucune date détectée (ni sur la couverture, ni dans le nom du fichier) pour la sélection',
       });
     } catch (error) {
       toast({ title: 'Échec de la détection groupée', description: error?.message || '' });
