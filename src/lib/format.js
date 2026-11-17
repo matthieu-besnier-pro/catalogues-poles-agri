@@ -88,6 +88,21 @@ function detectOperationDateFromSlug(slug) {
   return '';
 }
 
+// `${name}` *before* `${year}`, or the reverse — whichever appears, with the
+// month-name side always word-boundary-anchored so e.g. "mai" can't match
+// inside "jamais". `gap` controls how far apart they're allowed to be.
+function matchMonthYear(str, gap) {
+  const found =
+    new RegExp(`\\b(${MONTH_PATTERN})\\.?\\b[\\s\\S]{0,${gap}}?\\b(${YEAR})\\b`).exec(str) ||
+    new RegExp(`\\b(${YEAR})\\b[\\s\\S]{0,${gap}}?\\b(${MONTH_PATTERN})\\.?\\b`).exec(str);
+  if (!found) return '';
+  const [, first, second] = found;
+  const isYearFirst = /^\d{4}$/.test(first);
+  const year = isYearFirst ? first : second;
+  const month = MONTHS_FR[isYearFirst ? second : first];
+  return month ? `${year}-${String(month).padStart(2, '0')}-01` : '';
+}
+
 // Most catalogue file names carry no date at all — the operation's validity
 // period is printed ON the cover itself instead ("Offre valable du 1er au 30
 // avril 2026", "Catalogue avril 2026", "01/04/2026"). The cover's own
@@ -100,22 +115,30 @@ export function detectOperationDateFromText(text) {
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase();
 
-  const byName = new RegExp(`\\b(${MONTH_PATTERN})\\.?\\b[^\\d]{0,12}(${YEAR})\\b`).exec(normalized);
-  if (byName) {
-    const month = MONTHS_FR[byName[1]];
-    if (month) return `${byName[2]}-${String(month).padStart(2, '0')}-01`;
-  }
+  // Text extraction order rarely matches reading order, so the month and the
+  // year can land several words apart in the joined string — hence the wide gap.
+  const byName = matchMonthYear(normalized, 40);
+  if (byName) return byName;
 
-  // DD/MM/YYYY (or -, . separators) — the day is discarded, only the month matters here.
-  const full = /\b([0-2]?\d|3[01])[/\-.]([01]?\d)[/\-.](20\d{2})\b/.exec(normalized);
+  // DD/MM/YYYY or MM/YYYY, tolerating stray spaces around the separators
+  // (extraction sometimes inserts them where the PDF itself had none).
+  const full = /([0-2]?\d|3[01])\s*[/\-.]\s*([01]?\d)\s*[/\-.]\s*(20\d{2})/.exec(normalized);
   if (full) {
     const month = Number(full[2]);
     if (month >= 1 && month <= 12) return `${full[3]}-${String(month).padStart(2, '0')}-01`;
   }
-
-  // MM/YYYY.
-  const short = /\b(0?[1-9]|1[0-2])[/\-](20\d{2})\b/.exec(normalized);
+  const short = /\b(0?[1-9]|1[0-2])\s*[/\-]\s*(20\d{2})\b/.exec(normalized);
   if (short) return `${short[2]}-${short[1].padStart(2, '0')}-01`;
+
+  // Last resort: a stylised cover headline is often extracted one letter per
+  // text run ("A v r i l 2 0 2 6"), which breaks every pattern above since
+  // the month name itself is full of spurious internal spaces — collapsing
+  // all whitespace reassembles it before trying once more.
+  const squashed = normalized.replace(/\s+/g, '');
+  if (squashed && squashed !== normalized) {
+    const squashedByName = matchMonthYear(squashed, 6);
+    if (squashedByName) return squashedByName;
+  }
 
   return '';
 }
