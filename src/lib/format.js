@@ -103,12 +103,23 @@ function matchMonthYear(str, gap) {
   return month ? `${year}-${String(month).padStart(2, '0')}-01` : '';
 }
 
+// "26" on a cover printed in 2026 always means 2026, never 1926 — this is a
+// tool for current catalogues, not an archive, so the 2-digit case is never
+// ambiguous in practice.
+function normalizeYear(raw) {
+  return raw.length === 4 ? raw : String(2000 + Number(raw));
+}
+const YEAR_ANY = '(?:(?:19|20)\\d{2}|\\d{2})';
+
 // Most catalogue file names carry no date at all — the operation's validity
 // period is printed ON the cover itself instead ("Offre valable du 1er au 30
-// avril 2026", "Catalogue avril 2026", "01/04/2026"). The cover's own
-// extracted text (already pulled from the PDF for search) is a far more
-// reliable signal than the file name, so it's tried first.
-export function detectOperationDateFromText(text) {
+// avril 2026", "Catalogue avril 2026", "01/04/2026", "DU 26/10/26 AU
+// 27/11/26"). The cover's own extracted text (already pulled from the PDF
+// for search) is a far more reliable signal than the file name, so it's
+// tried first. `fallbackYear` (the catalogue's own creation year) covers
+// covers that give a month but never print a year at all — common on
+// "DU <jour> <mois> AU <jour> <mois>" banners with no year in sight.
+export function detectOperationDateFromText(text, fallbackYear) {
   if (!text) return '';
   const normalized = text
     .normalize('NFD')
@@ -120,15 +131,16 @@ export function detectOperationDateFromText(text) {
   const byName = matchMonthYear(normalized, 40);
   if (byName) return byName;
 
-  // DD/MM/YYYY or MM/YYYY, tolerating stray spaces around the separators
-  // (extraction sometimes inserts them where the PDF itself had none).
-  const full = /([0-2]?\d|3[01])\s*[/\-.]\s*([01]?\d)\s*[/\-.]\s*(20\d{2})/.exec(normalized);
+  // DD/MM/YYYY or DD/MM/YY ("26/10/26"), tolerating stray spaces around the
+  // separators (extraction sometimes inserts them where the PDF had none).
+  const full = new RegExp(`([0-2]?\\d|3[01])\\s*[/\\-.]\\s*([01]?\\d)\\s*[/\\-.]\\s*(${YEAR_ANY})`).exec(normalized);
   if (full) {
     const month = Number(full[2]);
-    if (month >= 1 && month <= 12) return `${full[3]}-${String(month).padStart(2, '0')}-01`;
+    if (month >= 1 && month <= 12) return `${normalizeYear(full[3])}-${String(month).padStart(2, '0')}-01`;
   }
-  const short = /\b(0?[1-9]|1[0-2])\s*[/\-]\s*(20\d{2})\b/.exec(normalized);
-  if (short) return `${short[2]}-${short[1].padStart(2, '0')}-01`;
+  // MM/YYYY or MM/YY.
+  const short = new RegExp(`\\b(0?[1-9]|1[0-2])\\s*[/\\-]\\s*(${YEAR_ANY})\\b`).exec(normalized);
+  if (short) return `${normalizeYear(short[2])}-${short[1].padStart(2, '0')}-01`;
 
   // Last resort: a stylised cover headline is often extracted one letter per
   // text run ("A v r i l 2 0 2 6"), which breaks every pattern above since
@@ -140,6 +152,16 @@ export function detectOperationDateFromText(text) {
     if (squashedByName) return squashedByName;
   }
 
+  // Still nothing: a bare month name with no year anywhere nearby — common on
+  // "DU 19 OCTOBRE AU 18 DECEMBRE" banners. The first one found is the start
+  // month (reading order puts "DU <start>" before "AU <end>"); pair it with
+  // the catalogue's own creation year since none is printed.
+  if (fallbackYear) {
+    const monthOnly = new RegExp(`\\b(${MONTH_PATTERN})\\.?\\b`).exec(normalized);
+    const month = monthOnly && MONTHS_FR[monthOnly[1]];
+    if (month) return `${fallbackYear}-${String(month).padStart(2, '0')}-01`;
+  }
+
   return '';
 }
 
@@ -149,8 +171,8 @@ export function detectOperationDateFromText(text) {
 // ("Promo_Avril2026.pdf", "Catalogue-04-2026.pdf") when that finds nothing.
 // Best-effort throughout: a bare year with no month attached is too
 // ambiguous and is left undetected.
-export function detectOperationDate(fileName, coverText) {
-  const fromText = detectOperationDateFromText(coverText);
+export function detectOperationDate(fileName, coverText, fallbackYear) {
+  const fromText = detectOperationDateFromText(coverText, fallbackYear);
   if (fromText) return fromText;
   return detectOperationDateFromSlug(slugify(fileName));
 }

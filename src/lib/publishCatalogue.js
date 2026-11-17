@@ -170,7 +170,7 @@ export async function createCatalogueWithPdf({ file, doc, meta, options, crop, o
       // L'essentiel du signal vient de ce qui est réellement imprimé sur la
       // couverture ("Offre valable du 1er au 30 avril 2026") ; le nom du
       // fichier ne sert que de repli quand la couverture n'en dit rien.
-      operation_date: meta.operationDate || detectOperationDate(file.name, result.coverText),
+      operation_date: meta.operationDate || detectOperationDate(file.name, result.coverText, new Date().getFullYear()),
       status: 'published',
       published_date: new Date().toISOString(),
     });

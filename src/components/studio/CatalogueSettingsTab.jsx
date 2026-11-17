@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import CatalogueOptions from '@/components/studio/CatalogueOptions';
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { sha256 } from '@/lib/format';
+import { detectOperationDate, sha256 } from '@/lib/format';
 
 const LANGUAGES = [
   { value: 'fr', label: 'Français' },
@@ -52,12 +52,34 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
     password: '',
   });
   const [saving, setSaving] = useState(false);
+  const [coverText, setCoverText] = useState('');
+  const [coverTextLoaded, setCoverTextLoaded] = useState(false);
+  const [detecting, setDetecting] = useState(false);
 
   useEffect(() => {
     const query = scopedPoleIds.length ? { id: { $in: scopedPoleIds } } : {};
     base44.entities.Pole.filter(query, { sort: 'display_order', limit: 50 }).then((page) => setPoles(page.items || []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopedPoleKey]);
+
+  // Surfaced purely as a diagnostic: the date detector reads this same text,
+  // so seeing it (empty, garbled, or fine) says immediately whether a missed
+  // detection is a pattern problem or there was never any text to read.
+  useEffect(() => {
+    setCoverText('');
+    setCoverTextLoaded(false);
+    if (!catalogue.active_version_id) {
+      setCoverTextLoaded(true);
+      return;
+    }
+    base44.entities.CataloguePage.filter(
+      { version_id: catalogue.active_version_id, page_number: 1 },
+      { limit: 1, fields: ['text'] },
+    ).then((page) => {
+      setCoverText(page.items?.[0]?.text || '');
+      setCoverTextLoaded(true);
+    });
+  }, [catalogue.active_version_id]);
 
   useEffect(() => {
     setForm({
@@ -92,6 +114,19 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
     setSaving(false);
     toast({ title: 'Réglages enregistrés' });
     onSaved();
+  };
+
+  const runDetection = () => {
+    setDetecting(true);
+    const fallbackYear = catalogue.created_date ? new Date(catalogue.created_date).getFullYear() : new Date().getFullYear();
+    const operationDate = detectOperationDate(catalogue.pdf_file_name || '', coverText, fallbackYear);
+    setDetecting(false);
+    if (operationDate) {
+      setForm((current) => ({ ...current, operation_date: operationDate.slice(0, 7) }));
+      toast({ title: 'Date détectée', description: 'Enregistrez pour la conserver.' });
+    } else {
+      toast({ title: 'Aucune date reconnue', description: 'Vérifiez le texte de la couverture ci-dessous, ou saisissez-la manuellement.' });
+    }
   };
 
   const removePassword = async () => {
@@ -136,15 +171,32 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
             </div>
             <div>
               <Label>Date d’opération</Label>
-              <input
-                type="month"
-                value={form.operation_date}
-                onChange={(event) => setForm({ ...form, operation_date: event.target.value })}
-                className="mt-2 h-10 w-[190px] rounded-lg border border-border bg-white px-3 text-sm"
-              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  type="month"
+                  value={form.operation_date}
+                  onChange={(event) => setForm({ ...form, operation_date: event.target.value })}
+                  className="h-10 w-[190px] rounded-lg border border-border bg-white px-3 text-sm"
+                />
+                <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={runDetection} disabled={detecting}>
+                  <Search className="mr-2 h-3.5 w-3.5" />
+                  Détecter
+                </Button>
+              </div>
               <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                Détectée depuis le nom du PDF à la mise en ligne ; corrigez-la ici si besoin pour trier correctement.
+                Détectée depuis le texte de la couverture (ou, à défaut, le nom du PDF) à la mise en ligne ; corrigez-la ici si
+                besoin pour trier correctement.
               </p>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-foreground">
+                  Texte lu sur la couverture (diagnostic)
+                </summary>
+                <div className="mt-2 max-h-32 overflow-y-auto rounded-lg border border-border bg-secondary/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                  {!coverTextLoaded
+                    ? 'Chargement…'
+                    : coverText || 'Aucun texte sélectionnable trouvé sur cette page — la couverture est probablement une image sans texte, la détection ne peut rien y lire.'}
+                </div>
+              </details>
             </div>
             <div className="flex flex-wrap gap-4">
               <div>

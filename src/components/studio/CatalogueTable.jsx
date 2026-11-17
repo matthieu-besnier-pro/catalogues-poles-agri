@@ -162,7 +162,8 @@ export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted
             );
             coverText = cover.items?.[0]?.text || '';
           }
-          const operationDate = detectOperationDate(current.pdf_file_name || '', coverText);
+          const fallbackYear = current.created_date ? new Date(current.created_date).getFullYear() : new Date().getFullYear();
+          const operationDate = detectOperationDate(current.pdf_file_name || '', coverText, fallbackYear);
           if (!operationDate) return;
           detected += 1;
           const updated = await base44.entities.Catalogue.update(id, { operation_date: operationDate });
