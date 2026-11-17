@@ -88,21 +88,6 @@ function detectOperationDateFromSlug(slug) {
   return '';
 }
 
-// `${name}` *before* `${year}`, or the reverse — whichever appears, with the
-// month-name side always word-boundary-anchored so e.g. "mai" can't match
-// inside "jamais". `gap` controls how far apart they're allowed to be.
-function matchMonthYear(str, gap) {
-  const found =
-    new RegExp(`\\b(${MONTH_PATTERN})\\.?\\b[\\s\\S]{0,${gap}}?\\b(${YEAR})\\b`).exec(str) ||
-    new RegExp(`\\b(${YEAR})\\b[\\s\\S]{0,${gap}}?\\b(${MONTH_PATTERN})\\.?\\b`).exec(str);
-  if (!found) return '';
-  const [, first, second] = found;
-  const isYearFirst = /^\d{4}$/.test(first);
-  const year = isYearFirst ? first : second;
-  const month = MONTHS_FR[isYearFirst ? second : first];
-  return month ? `${year}-${String(month).padStart(2, '0')}-01` : '';
-}
-
 // "26" on a cover printed in 2026 always means 2026, never 1926 — this is a
 // tool for current catalogues, not an archive, so the 2-digit case is never
 // ambiguous in practice.
@@ -111,25 +96,26 @@ function normalizeYear(raw) {
 }
 const YEAR_ANY = '(?:(?:19|20)\\d{2}|\\d{2})';
 
+// Finds the first month name anywhere in the string, word-boundary-anchored
+// so e.g. "mai" can't match inside "jamais".
+function firstMonth(str) {
+  const found = new RegExp(`\\b(${MONTH_PATTERN})\\.?\\b`).exec(str);
+  return found ? MONTHS_FR[found[1]] : 0;
+}
+
 // Most catalogue file names carry no date at all — the operation's validity
 // period is printed ON the cover itself instead ("Offre valable du 1er au 30
 // avril 2026", "Catalogue avril 2026", "01/04/2026", "DU 26/10/26 AU
 // 27/11/26"). The cover's own extracted text (already pulled from the PDF
 // for search) is a far more reliable signal than the file name, so it's
 // tried first. `fallbackYear` (the catalogue's own creation year) covers
-// covers that give a month but never print a year at all — common on
-// "DU <jour> <mois> AU <jour> <mois>" banners with no year in sight.
+// covers that give a month but never print a year at all.
 export function detectOperationDateFromText(text, fallbackYear) {
   if (!text) return '';
   const normalized = text
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase();
-
-  // Text extraction order rarely matches reading order, so the month and the
-  // year can land several words apart in the joined string — hence the wide gap.
-  const byName = matchMonthYear(normalized, 40);
-  if (byName) return byName;
 
   // DD/MM/YYYY or DD/MM/YY ("26/10/26"), tolerating stray spaces around the
   // separators (extraction sometimes inserts them where the PDF had none).
@@ -142,25 +128,31 @@ export function detectOperationDateFromText(text, fallbackYear) {
   const short = new RegExp(`\\b(0?[1-9]|1[0-2])\\s*[/\\-]\\s*(${YEAR_ANY})\\b`).exec(normalized);
   if (short) return `${normalizeYear(short[2])}-${short[1].padStart(2, '0')}-01`;
 
-  // Last resort: a stylised cover headline is often extracted one letter per
-  // text run ("A v r i l 2 0 2 6"), which breaks every pattern above since
-  // the month name itself is full of spurious internal spaces — collapsing
-  // all whitespace reassembles it before trying once more.
+  // A one-page flyer only ever covers one operation, so a month name and a
+  // 4-digit year found ANYWHERE on it — however far apart the PDF's own text
+  // order happens to place them — almost certainly belong together. (A bare
+  // 2-digit year isn't trusted here with no proximity to anchor it to: on its
+  // own it's too easily a price, an article count, anything.)
+  const month = firstMonth(normalized);
+  const year = new RegExp(`\\b(${YEAR})\\b`).exec(normalized);
+  if (month && year) return `${year[1]}-${String(month).padStart(2, '0')}-01`;
+
+  // Still nothing: a stylised cover (big headline, big year treated as
+  // artwork) is often extracted one character per text run — "A v r i l",
+  // "2 0 2 6" — which breaks every \b-anchored pattern above, since the
+  // token itself is full of spurious internal spaces. Collapsing all
+  // whitespace reassembles both before trying once more.
   const squashed = normalized.replace(/\s+/g, '');
   if (squashed && squashed !== normalized) {
-    const squashedByName = matchMonthYear(squashed, 6);
-    if (squashedByName) return squashedByName;
+    const squashedMonth = firstMonth(squashed);
+    const squashedYear = new RegExp(`(${YEAR})`).exec(squashed);
+    if (squashedMonth && squashedYear) return `${squashedYear[1]}-${String(squashedMonth).padStart(2, '0')}-01`;
+    if (squashedMonth && fallbackYear) return `${fallbackYear}-${String(squashedMonth).padStart(2, '0')}-01`;
   }
 
-  // Still nothing: a bare month name with no year anywhere nearby — common on
-  // "DU 19 OCTOBRE AU 18 DECEMBRE" banners. The first one found is the start
-  // month (reading order puts "DU <start>" before "AU <end>"); pair it with
-  // the catalogue's own creation year since none is printed.
-  if (fallbackYear) {
-    const monthOnly = new RegExp(`\\b(${MONTH_PATTERN})\\.?\\b`).exec(normalized);
-    const month = monthOnly && MONTHS_FR[monthOnly[1]];
-    if (month) return `${fallbackYear}-${String(month).padStart(2, '0')}-01`;
-  }
+  // Truly nothing printed that reads as a year at all — pair the month with
+  // the catalogue's own creation year instead.
+  if (month && fallbackYear) return `${fallbackYear}-${String(month).padStart(2, '0')}-01`;
 
   return '';
 }
