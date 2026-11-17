@@ -13,6 +13,20 @@ export function uniqueSlug(base) {
   return `${slugify(base) || 'catalogue'}-${suffix}`;
 }
 
+// Guesses which filiale a dropped PDF belongs to from its file name, matching
+// against each pole's own name or slug (accents/case/punctuation-insensitive
+// via slugify) — e.g. "Catalogue_Gonnin-Duris_2026.pdf" matches "Gonnin Duris".
+// Best-effort only: no match just leaves the usual manual picker in place.
+export function detectPole(fileName, poles) {
+  const haystack = slugify(fileName);
+  if (!haystack) return null;
+  for (const pole of poles || []) {
+    const needles = [pole.slug, pole.name].filter(Boolean).map(slugify).filter((needle) => needle.length >= 3);
+    if (needles.some((needle) => haystack.includes(needle))) return pole;
+  }
+  return null;
+}
+
 export function formatDate(value) {
   if (!value) return '—';
   return new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });

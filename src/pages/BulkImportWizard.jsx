@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import CatalogueOptions from '@/components/studio/CatalogueOptions';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
-import { sha256 } from '@/lib/format';
+import { detectPole, sha256 } from '@/lib/format';
 import { takePendingImport } from '@/lib/pendingImport';
 import { openPdfFile } from '@/lib/pdfEngine';
 import { NO_CROP, createCatalogueWithPdf } from '@/lib/publishCatalogue';
@@ -70,21 +70,31 @@ export default function BulkImportWizard() {
       setDropError('Seuls les fichiers PDF de moins de 200 Mo sont acceptés.');
       return;
     }
+    let detectedCount = 0;
     setItems((current) => {
       const room = Math.max(0, MAX_FILES - current.length);
       if (room <= 0) return current;
-      const added = valid.slice(0, room).map((file) => ({
-        id: nextId(),
-        file,
-        title: prettyName(file.name),
-        status: 'pending',
-        stage: '',
-        percent: 0,
-        error: '',
-        result: null,
-      }));
+      const added = valid.slice(0, room).map((file) => {
+        const detected = detectPole(file.name, poles);
+        if (detected) detectedCount += 1;
+        return {
+          id: nextId(),
+          file,
+          title: prettyName(file.name),
+          poleId: detected?.id || poleId || poles[0]?.id || '',
+          poleDetected: !!detected,
+          status: 'pending',
+          stage: '',
+          percent: 0,
+          error: '',
+          result: null,
+        };
+      });
       return [...current, ...added];
     });
+    if (detectedCount) {
+      toast({ title: `Filiale détectée pour ${detectedCount} fichier${detectedCount > 1 ? 's' : ''}` });
+    }
   };
 
   useEffect(() => {
@@ -95,12 +105,13 @@ export default function BulkImportWizard() {
 
   const removeItem = (id) => setItems((current) => current.filter((item) => item.id !== id));
   const updateTitle = (id, title) => setItems((current) => current.map((item) => (item.id === id ? { ...item, title } : item)));
+  const updatePole = (id, nextPoleId) =>
+    setItems((current) => current.map((item) => (item.id === id ? { ...item, poleId: nextPoleId, poleDetected: false } : item)));
 
   const remaining = items.filter((item) => item.status !== 'done');
-  const canPublish = !running && remaining.length > 0 && Boolean(poleId);
+  const canPublish = !running && remaining.length > 0 && poles.length > 0;
 
   const publishAll = async () => {
-    const pole = poles.find((item) => item.id === poleId) || null;
     const passwordHash = options.password ? await sha256(options.password) : '';
     const queue = items.filter((item) => item.status !== 'done');
     setRunning(true);
@@ -108,6 +119,7 @@ export default function BulkImportWizard() {
     let failed = 0;
 
     for (const item of queue) {
+      const pole = poles.find((candidate) => candidate.id === item.poleId) || null;
       setItems((current) => current.map((row) => (row.id === item.id ? { ...row, status: 'processing', error: '', percent: 0 } : row)));
       let opened = null;
       try {
@@ -155,8 +167,8 @@ export default function BulkImportWizard() {
 
       <h1 className="mt-6 font-display text-4xl leading-tight lg:text-5xl">Import en masse</h1>
       <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
-        Déposez plusieurs PDF : chacun devient un catalogue publié séparément, avec la même filiale et les mêmes réglages de
-        diffusion. Le titre de chaque catalogue reste modifiable avant publication.
+        Déposez plusieurs PDF : chacun devient un catalogue publié séparément, avec les mêmes réglages de diffusion. La filiale
+        de chaque fichier est détectée automatiquement d’après son nom. Titre et filiale restent modifiables avant publication.
       </p>
 
       <div
@@ -201,7 +213,7 @@ export default function BulkImportWizard() {
         <>
           <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_260px]">
             <div className="rounded-xl border border-border bg-card p-6">
-              <Label>Filiale</Label>
+              <Label>Filiale par défaut</Label>
               <Select value={poleId} onValueChange={setPoleId} disabled={running}>
                 <SelectTrigger className="mt-2">
                   <SelectValue placeholder="Choisir une filiale" />
@@ -219,7 +231,10 @@ export default function BulkImportWizard() {
                   Aucune filiale enregistrée : créez-en une depuis l’onglet Filiales avant de publier.
                 </p>
               ) : (
-                <p className="mt-2 text-xs text-muted-foreground">Appliqué à l’ensemble des catalogues de cet envoi.</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  La filiale de chaque fichier est détectée automatiquement d’après son nom ; sinon, celle-ci s’applique par
+                  défaut. Modifiable individuellement ci-dessous.
+                </p>
               )}
               <div className="mt-6 border-t border-border pt-2">
                 <CatalogueOptions options={options} onChange={setOptions} passwordLabel="Mot de passe (commun à cet envoi)" />
@@ -255,6 +270,20 @@ export default function BulkImportWizard() {
                     <p className="mt-1.5 text-xs text-muted-foreground">{item.file.name}</p>
                   )}
                 </div>
+                {item.status !== 'done' ? (
+                  <Select value={item.poleId} onValueChange={(value) => updatePole(item.id, value)} disabled={running}>
+                    <SelectTrigger className={cn('h-8 w-[160px] shrink-0 text-xs', item.poleDetected && 'border-accent text-accent')}>
+                      <SelectValue placeholder="Filiale" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {poles.map((pole) => (
+                        <SelectItem key={pole.id} value={pole.id}>
+                          {pole.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
                 {item.status === 'done' && item.result?.catalogue?.slug ? (
                   <a
                     href={`/c/${item.result.catalogue.slug}`}

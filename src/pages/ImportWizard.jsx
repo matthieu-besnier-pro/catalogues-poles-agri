@@ -13,7 +13,7 @@ import PdfDropzone from '@/components/studio/PdfDropzone';
 import ShareBox from '@/components/studio/ShareBox';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
-import { sha256 } from '@/lib/format';
+import { detectPole, sha256 } from '@/lib/format';
 import { takePendingImport } from '@/lib/pendingImport';
 import { openPdfFile } from '@/lib/pdfEngine';
 import { NO_CROP, createCatalogueWithPdf } from '@/lib/publishCatalogue';
@@ -71,7 +71,13 @@ export default function ImportWizard() {
       setFile(selected);
       setDoc(opened.doc);
       setPageCount(opened.doc.numPages);
-      setMeta((current) => ({ ...current, title: current.title || prettyName(selected.name) }));
+      const detected = detectPole(selected.name, poles);
+      setMeta((current) => ({
+        ...current,
+        title: current.title || prettyName(selected.name),
+        poleId: detected ? detected.id : current.poleId,
+      }));
+      if (detected) toast({ title: 'Filiale détectée', description: detected.name });
       setStep(1);
     } catch (err) {
       setError(err?.message || 'Lecture du fichier impossible.');
