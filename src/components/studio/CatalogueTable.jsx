@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, FileText, Loader2, Pencil, Trash2, UploadCloud } from 'lucide-react';
+import { BookOpen, CalendarSearch, FileText, Loader2, Pencil, Trash2, UploadCloud } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import {
   AlertDialog,
@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Image } from '@/components/ui/image';
 import { useToast } from '@/components/ui/use-toast';
-import { formatDate, formatNumber, publicPath } from '@/lib/format';
+import { detectOperationDate, formatDate, formatNumber, publicPath } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 const STATUS_OPTIONS = [
@@ -142,6 +142,35 @@ export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted
     }
   };
 
+  // Relance la détection sur le nom du PDF déjà enregistré — utile pour les
+  // catalogues publiés avant l'existence de ce champ, sans rouvrir chacun
+  // dans ses réglages.
+  const bulkDetectDate = async () => {
+    setBulkBusy(true);
+    try {
+      let detected = 0;
+      await Promise.all(
+        selected.map(async (id) => {
+          const current = catalogues.find((item) => item.id === id);
+          const operationDate = detectOperationDate(current?.pdf_file_name || '');
+          if (!operationDate) return;
+          detected += 1;
+          const updated = await base44.entities.Catalogue.update(id, { operation_date: operationDate });
+          onUpdated(id, updated);
+        }),
+      );
+      toast({
+        title: detected
+          ? `Date détectée pour ${detected} catalogue${detected > 1 ? 's' : ''}`
+          : 'Aucune date détectée dans le nom des PDF sélectionnés',
+      });
+    } catch (error) {
+      toast({ title: 'Échec de la détection groupée', description: error?.message || '' });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const bulkDelete = async () => {
     const ids = selected;
     setBulkBusy(true);
@@ -170,6 +199,10 @@ export default function CatalogueTable({ catalogues, poles, onUpdated, onDeleted
             {selected.length} sélectionné{selected.length > 1 ? 's' : ''}
           </span>
           {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : null}
+          <Button variant="outline" size="sm" className="rounded-full" disabled={bulkBusy} onClick={bulkDetectDate}>
+            <CalendarSearch className="mr-2 h-3.5 w-3.5" />
+            Détecter la date d’opération
+          </Button>
           <Select onValueChange={bulkChangePole} disabled={bulkBusy}>
             <SelectTrigger className="h-8 w-[170px]">
               <SelectValue placeholder="Changer la filiale" />
