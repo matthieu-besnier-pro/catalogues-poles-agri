@@ -14,6 +14,34 @@ const SCREEN_WIDTH = 1500;
 const PAGE_BATCH = 8;
 const PAGE_CONCURRENCY = 3;
 
+// Last resort when the cover has no selectable text at all (its text is
+// vectorised/drawn rather than real PDF text, common on heavily designed
+// covers) — ask Base44's built-in vision model to read the date straight off
+// the cover image. Costs AI credits, so callers only reach for this after
+// the free text-based detection has already failed, never as a first try.
+export async function detectOperationDateFromImage(imageUrl) {
+  if (!imageUrl) return '';
+  try {
+    const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
+      file_url: imageUrl,
+      json_schema: {
+        type: 'object',
+        properties: {
+          operation_month: {
+            type: 'string',
+            description:
+              "Le mois et l'année de l'opération commerciale ou de la promotion affichée sur cette image (la date de DÉBUT si une période du type \"DU ... AU ...\" est indiquée), au format AAAA-MM, par exemple \"2026-10\" pour octobre 2026. Renvoie une chaîne vide si aucun mois et aucune année ne sont visibles sur l'image.",
+          },
+        },
+      },
+    });
+    const raw = String(result?.operation_month || '').trim();
+    return /^\d{4}-(0[1-9]|1[0-2])$/.test(raw) ? `${raw}-01` : '';
+  } catch (error) {
+    return '';
+  }
+}
+
 export const NO_CROP = { top: 0, right: 0, bottom: 0, left: 0 };
 
 export function hasCrop(crop) {

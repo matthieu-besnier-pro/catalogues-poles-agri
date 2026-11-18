@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, Trash2 } from 'lucide-react';
+import { Search, Sparkles, Trash2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import CatalogueOptions from '@/components/studio/CatalogueOptions';
@@ -21,6 +21,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { detectOperationDate, sha256 } from '@/lib/format';
+import { detectOperationDateFromImage } from '@/lib/publishCatalogue';
 
 const LANGUAGES = [
   { value: 'fr', label: 'Français' },
@@ -55,6 +56,7 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
   const [coverText, setCoverText] = useState('');
   const [coverTextLoaded, setCoverTextLoaded] = useState(false);
   const [detecting, setDetecting] = useState(false);
+  const [detectingImage, setDetectingImage] = useState(false);
 
   useEffect(() => {
     const query = scopedPoleIds.length ? { id: { $in: scopedPoleIds } } : {};
@@ -137,6 +139,25 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
     }
   };
 
+  // Last resort, only reached by hand: reads the date straight off the cover
+  // image via Base44's AI vision — costs credits, so never run automatically.
+  const runImageDetection = async () => {
+    setDetectingImage(true);
+    try {
+      const operationDate = await detectOperationDateFromImage(catalogue.cover_url);
+      if (operationDate) {
+        setForm((current) => ({ ...current, operation_date: operationDate.slice(0, 7) }));
+        toast({ title: 'Date lue sur l’image', description: 'Enregistrez pour la conserver.' });
+      } else {
+        toast({ title: 'Toujours rien', description: 'Même la lecture de l’image ne trouve aucune date. Saisissez-la manuellement.' });
+      }
+    } catch (error) {
+      toast({ title: 'Échec de la lecture de l’image', description: error?.message || '' });
+    } finally {
+      setDetectingImage(false);
+    }
+  };
+
   const removePassword = async () => {
     await base44.entities.Catalogue.update(catalogue.id, { password_hash: '' });
     toast({ title: 'Protection retirée' });
@@ -190,10 +211,24 @@ export default function CatalogueSettingsTab({ catalogue, onSaved, onDelete }) {
                   <Search className="mr-2 h-3.5 w-3.5" />
                   Détecter
                 </Button>
+                {catalogue.cover_url ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    onClick={runImageDetection}
+                    disabled={detectingImage}
+                  >
+                    <Sparkles className="mr-2 h-3.5 w-3.5" />
+                    {detectingImage ? 'Lecture…' : 'Lire l’image (IA)'}
+                  </Button>
+                ) : null}
               </div>
               <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
                 Détectée depuis le texte de la couverture (ou, à défaut, le nom du PDF) à la mise en ligne ; corrigez-la ici si
-                besoin pour trier correctement.
+                besoin pour trier correctement. Si la couverture n’a pas de texte lisible (dessin vectorisé), « Lire l’image »
+                demande à l’IA de la lire directement — coûte des crédits, à utiliser au cas par cas.
               </p>
               <details className="mt-2" open={!form.operation_date}>
                 <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-foreground">
